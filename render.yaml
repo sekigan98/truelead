@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: truelead-api
+    env: node
+    plan: starter
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATA_FILE
+        value: /var/data/truelead-db.json
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+    disk:
+      name: truelead-data
+      mountPath: /var/data
+      sizeGB: 1

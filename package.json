@@ -1,0 +1,25 @@
+{
+  "name": "truelead-functional",
+  "version": "1.0.0",
+  "description": "TrueLead functional MVP: SaaS web + backend for real WhatsApp lead tracking and Meta CAPI.",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "NODE_ENV=development node src/server.js",
+    "seed": "node src/data/seed.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "nanoid": "^5.0.9"
+  }
+}

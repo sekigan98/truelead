@@ -1,0 +1,156 @@
+
+const user = TrueLeadAPI.user();
+const messageBox = document.querySelector('[data-message]');
+
+if (!user) location.href = 'login.html';
+if (user?.role !== 'admin') location.href = 'app.html';
+
+document.querySelector('[data-admin-name]').textContent = user.name || 'Admin';
+document.querySelector('[data-logout]')?.addEventListener('click', () => {
+  TrueLeadAPI.clearSession();
+  location.href = 'login.html';
+});
+
+let adminState = { overview: null, agencies: [] };
+
+function setAdminTab(tab) {
+  document.querySelectorAll('[data-admin-tab]').forEach(btn => btn.classList.toggle('active', btn.dataset.adminTab === tab));
+  document.querySelectorAll('[data-admin-panel]').forEach(panel => panel.classList.toggle('hidden', panel.dataset.adminPanel !== tab));
+}
+document.querySelectorAll('[data-admin-tab]').forEach(btn => btn.addEventListener('click', () => setAdminTab(btn.dataset.adminTab)));
+
+function renderOverview() {
+  const m = adminState.overview?.metrics || {};
+  for (const [key, value] of Object.entries(m)) {
+    const el = document.querySelector(`[data-admin-metric="${key}"]`);
+    if (el) el.textContent = value ?? 0;
+  }
+
+  const events = adminState.overview?.recentEvents || [];
+  document.querySelector('[data-admin-events]').innerHTML = events.length
+    ? events.map(ev => `
+      <article class="soft client-card">
+        <strong>${ev.type}</strong>
+        <p>${ev.message}</p>
+        <small>${TLUtils.formatDate(ev.createdAt)}</small>
+      </article>
+    `).join('')
+    : '<p class="muted">Todavía no hay actividad.</p>';
+}
+
+function renderAgencies() {
+  const body = document.querySelector('[data-agencies-table]');
+  body.innerHTML = adminState.agencies.length ? adminState.agencies.map(a => `
+    <tr>
+      <td>
+        <strong>${a.name}</strong><br>
+        <small>${(a.users || []).map(u => u.email).join(', ') || '-'}</small>
+      </td>
+      <td><span class="tag ${TLUtils.statusClass(a.status)}">${a.status}</span></td>
+      <td>${a.plan || '-'}</td>
+      <td>${(a.users || []).length}</td>
+      <td>${a.projectsCount || 0}</td>
+      <td>${a.leadsCount || 0}</td>
+      <td>${TLUtils.formatDate(a.expiresAt)}</td>
+      <td>
+        <div class="actions">
+          <button class="btn btn-primary btn-small" data-activate="${a.id}">Activar</button>
+          <button class="btn btn-secondary btn-small" data-payment="${a.id}">Cargar pago</button>
+          <button class="btn btn-danger btn-small" data-suspend="${a.id}">Suspender</button>
+        </div>
+      </td>
+    </tr>
+  `).join('') : '<tr><td colspan="8">No hay agencias.</td></tr>';
+
+  body.querySelectorAll('[data-activate]').forEach(btn => btn.addEventListener('click', () => updateAgencyStatus(btn.dataset.activate, 'active')));
+  body.querySelectorAll('[data-suspend]').forEach(btn => btn.addEventListener('click', () => updateAgencyStatus(btn.dataset.suspend, 'suspended')));
+  body.querySelectorAll('[data-payment]').forEach(btn => btn.addEventListener('click', () => createPayment(btn.dataset.payment)));
+}
+
+function allPayments() {
+  return adminState.agencies.flatMap(a => (a.payments || []).map(p => ({ ...p, agencyName: a.name })));
+}
+
+function renderPayments() {
+  const payments = allPayments().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  const body = document.querySelector('[data-payments-table]');
+  body.innerHTML = payments.length ? payments.map(p => `
+    <tr>
+      <td>${p.agencyName}</td>
+      <td>${p.plan || '-'}</td>
+      <td>${p.currency || 'ARS'} ${Number(p.amount || 0).toLocaleString('es-AR')}</td>
+      <td><span class="tag ${TLUtils.statusClass(p.status)}">${p.status}</span></td>
+      <td>${p.method || 'manual'}</td>
+      <td>${TLUtils.formatDate(p.createdAt)}</td>
+      <td>
+        <div class="actions">
+          <button class="btn btn-primary btn-small" data-approve-payment="${p.id}">Aprobar</button>
+          <button class="btn btn-danger btn-small" data-reject-payment="${p.id}">Rechazar</button>
+        </div>
+      </td>
+    </tr>
+  `).join('') : '<tr><td colspan="7">No hay pagos.</td></tr>';
+
+  body.querySelectorAll('[data-approve-payment]').forEach(btn => btn.addEventListener('click', () => validatePayment(btn.dataset.approvePayment, 'approved')));
+  body.querySelectorAll('[data-reject-payment]').forEach(btn => btn.addEventListener('click', () => validatePayment(btn.dataset.rejectPayment, 'rejected')));
+}
+
+async function loadAdmin() {
+  try {
+    const [overview, agencies] = await Promise.all([
+      TrueLeadAPI.get('/api/admin/overview'),
+      TrueLeadAPI.get('/api/admin/agencies')
+    ]);
+    adminState.overview = overview;
+    adminState.agencies = agencies.agencies || [];
+    renderOverview();
+    renderAgencies();
+    renderPayments();
+  } catch (error) {
+    TLUtils.showMessage(messageBox, error.message, 'error');
+  }
+}
+
+async function updateAgencyStatus(id, status) {
+  try {
+    await TrueLeadAPI.patch(`/api/admin/agencies/${id}/status`, { status });
+    TLUtils.showMessage(messageBox, `Agencia actualizada: ${status}`, 'success');
+    await loadAdmin();
+  } catch (error) {
+    TLUtils.showMessage(messageBox, error.message, 'error');
+  }
+}
+
+async function createPayment(agencyId) {
+  const amount = prompt('Monto del pago:', '49000');
+  if (amount === null) return;
+  const plan = prompt('Plan:', 'pro') || 'pro';
+  try {
+    await TrueLeadAPI.post(`/api/admin/agencies/${agencyId}/payments`, {
+      amount: Number(amount || 0),
+      currency: 'ARS',
+      plan,
+      status: 'pending',
+      method: 'manual',
+      notes: 'Pago cargado desde panel admin.'
+    });
+    TLUtils.showMessage(messageBox, 'Pago cargado correctamente.', 'success');
+    await loadAdmin();
+  } catch (error) {
+    TLUtils.showMessage(messageBox, error.message, 'error');
+  }
+}
+
+async function validatePayment(paymentId, status) {
+  try {
+    await TrueLeadAPI.patch(`/api/admin/payments/${paymentId}/validate`, { status });
+    TLUtils.showMessage(messageBox, `Pago ${status}.`, 'success');
+    await loadAdmin();
+  } catch (error) {
+    TLUtils.showMessage(messageBox, error.message, 'error');
+  }
+}
+
+document.querySelectorAll('[data-reload-admin]').forEach(btn => btn.addEventListener('click', loadAdmin));
+
+loadAdmin();
