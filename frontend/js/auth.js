@@ -21,12 +21,6 @@ if (loginForm) {
         return;
       }
 
-      if (destination === 'client' && data.user.role === 'admin') {
-        TrueLeadAPI.setSession(data.token, data.user);
-        location.href = 'admin.html';
-        return;
-      }
-
       TrueLeadAPI.setSession(data.token, data.user);
       location.href = destination === 'admin' ? 'admin.html' : 'app.html';
     } catch (error) {

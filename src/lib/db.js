@@ -15,6 +15,7 @@ const DEFAULT_DATA = {
   whatsappMessages: [],
   purchases: [],
   events: [],
+  emailLogs: [],
   settings: {
     createdAt: nowIso(),
     schemaVersion: 1
@@ -49,7 +50,7 @@ export class JsonDB {
   }
 
   async ensureAdmin() {
-    const email = (process.env.ADMIN_EMAIL || 'admin@truelead.local').toLowerCase();
+    const email = (process.env.ADMIN_EMAIL || 'trueleadsite@gmail.com').toLowerCase();
     const existing = this.data.users.find((u) => u.email === email);
     if (existing) return existing;
 
@@ -73,7 +74,7 @@ export class JsonDB {
     this.data.users.push({
       id: adminUserId,
       agencyId: adminAgencyId,
-      name: process.env.ADMIN_NAME || 'Admin',
+      name: process.env.ADMIN_NAME || 'TrueLead Admin',
       email,
       passwordHash,
       role: 'admin',

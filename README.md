@@ -212,3 +212,29 @@ TrueLead muestra Purchase/compra confirmada dentro del sistema
 ### Importante
 
 La compra confirmada queda registrada en TrueLead. En esta versión no se manda automáticamente `Purchase` a Meta, porque conviene validar el comprobante antes.
+
+
+## Notas de esta actualización
+
+- `login.html` ya no muestra el acceso al backoffice administrador.
+- Un usuario administrador puede ingresar desde `login.html` y entrar al panel cliente/agencia (`app.html`).
+- `admin-login.html` queda como acceso interno separado para administradores.
+- La cuenta base de TrueLead queda preparada como `trueleadsite@gmail.com`.
+- Se agregó servicio de emails para avisos de registro pendiente, activación/suspensión de cuenta, pagos aprobados/rechazados y cambios de plan.
+- Si no configurás `SMTP_PASS`, el sistema no rompe: registra los emails como `skipped_missing_smtp` y los deja logueados.
+
+### Email en Render
+
+Para enviar emails reales desde `trueleadsite@gmail.com`, configurar en Render:
+
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=trueleadsite@gmail.com
+SMTP_PASS=contraseña_de_aplicación_de_gmail
+MAIL_FROM=trueleadsite@gmail.com
+TRUELEAD_CONTACT_EMAIL=trueleadsite@gmail.com
+```
+
+En Gmail no conviene usar la contraseña normal de la cuenta; usá contraseña de aplicación.

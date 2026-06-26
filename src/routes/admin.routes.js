@@ -4,6 +4,7 @@ import { db } from '../lib/db.js';
 import { cleanString, nowIso, addDays } from '../lib/utils.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { getPricingForRequest, getPlanById } from '../lib/pricing.js';
+import { notifyAgencyStatusChange, notifyPaymentValidation, notifyPlanUpdated } from '../services/email.service.js';
 
 export const adminRouter = express.Router();
 
@@ -81,6 +82,10 @@ adminRouter.patch('/agencies/:id/status', async (req, res) => {
   }
   await db.save();
 
+  notifyAgencyStatusChange({ agency: updated, status }).catch((error) => {
+    console.warn('[email] agency status notification failed:', error.message);
+  });
+
   res.json({ agency: updated });
 });
 
@@ -136,6 +141,13 @@ adminRouter.patch('/payments/:id/validate', async (req, res) => {
     await db.save();
   }
 
+  const agencyForEmail = db.data.agencies.find((a) => a.id === payment.agencyId);
+  if (agencyForEmail) {
+    notifyPaymentValidation({ agency: agencyForEmail, payment: updatedPayment, status }).catch((error) => {
+      console.warn('[email] payment notification failed:', error.message);
+    });
+  }
+
   res.json({ payment: updatedPayment });
 });
 
@@ -170,6 +182,11 @@ adminRouter.patch('/agencies/:id/plan', async (req, res) => {
   });
 
   await db.save();
+
+  notifyPlanUpdated({ agency: updated, plan, expiresAt }).catch((error) => {
+    console.warn('[email] plan notification failed:', error.message);
+  });
+
   res.json({ agency: updated, plan });
 });
 

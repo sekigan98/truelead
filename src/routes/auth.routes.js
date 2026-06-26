@@ -4,6 +4,7 @@ import { nanoid } from 'nanoid';
 import { db } from '../lib/db.js';
 import { cleanString, nowIso, addDays } from '../lib/utils.js';
 import { signToken, requireAuth } from '../middleware/auth.js';
+import { notifyRegistrationPending } from '../services/email.service.js';
 
 export const authRouter = express.Router();
 
@@ -70,6 +71,12 @@ authRouter.post('/register', async (req, res) => {
   });
 
   await db.save();
+
+  const agency = db.data.agencies.find((a) => a.id === agencyId);
+  const createdUser = db.data.users.find((u) => u.id === userId);
+  notifyRegistrationPending({ agency, user: createdUser }).catch((error) => {
+    console.warn('[email] registration notification failed:', error.message);
+  });
 
   return res.status(201).json({
     ok: true,

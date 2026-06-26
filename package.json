@@ -1,6 +1,6 @@
 {
   "name": "truelead-functional",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "TrueLead SaaS with client app, admin backoffice, WhatsApp Baileys connector, proof/purchase tracking and Meta CAPI.",
   "main": "src/server.js",
   "type": "module",
@@ -23,6 +23,7 @@
     "nanoid": "^5.0.9",
     "@whiskeysockets/baileys": "^6.7.18",
     "pino": "^9.6.0",
-    "qrcode": "^1.5.4"
+    "qrcode": "^1.5.4",
+    "nodemailer": "^6.9.16"
   }
 }

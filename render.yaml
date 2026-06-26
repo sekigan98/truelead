@@ -20,6 +20,20 @@ services:
         sync: false
       - key: ADMIN_PASSWORD
         sync: false
+      - key: TRUELEAD_CONTACT_EMAIL
+        value: trueleadsite@gmail.com
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: 465
+      - key: SMTP_SECURE
+        value: true
+      - key: SMTP_USER
+        value: trueleadsite@gmail.com
+      - key: SMTP_PASS
+        sync: false
+      - key: MAIL_FROM
+        value: trueleadsite@gmail.com
       - key: CORS_ORIGIN
         sync: false
       - key: TRUELEAD_USD_ARS_RATE
