@@ -24,6 +24,7 @@ adminRouter.get('/overview', (req, res) => {
   const users = db.data.users;
   const leads = db.data.preleads;
   const payments = db.data.payments;
+  const purchases = db.data.purchases;
   res.json({
     metrics: {
       agencies: agencies.length,
@@ -32,7 +33,10 @@ adminRouter.get('/overview', (req, res) => {
       users: users.length,
       leads: leads.length,
       confirmedLeads: leads.filter((l) => l.status === 'confirmed' || l.status === 'sent_to_meta').length,
-      paymentsPending: payments.filter((p) => p.status === 'pending').length
+      paymentsPending: payments.filter((p) => p.status === 'pending').length,
+      paymentProofs: purchases.length,
+      purchasesPending: purchases.filter((p) => p.status === 'proof_received').length,
+      purchasesConfirmed: purchases.filter((p) => p.status === 'purchase_confirmed').length
     },
     recentEvents: [...db.data.events].sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).slice(0, 30)
   });

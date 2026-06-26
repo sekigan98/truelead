@@ -23,6 +23,7 @@
         <button data-tab="clients">Clientes</button>
         <button data-tab="projects">Proyectos</button>
         <button data-tab="leads">Leads</button>
+        <button data-tab="purchases">Comprobantes</button>
         <button data-tab="whatsapp">WhatsApp <span class="pill">QR</span></button>
         <button data-tab="billing">Mi plan</button>
         <a href="connect.html">Página de vinculación</a>
@@ -74,6 +75,11 @@
             <strong data-metric="confirmed">0</strong>
             <small data-metric="conversionRate">0% confirmación</small>
           </article>
+          <article class="metric">
+            <label>Comprobantes</label>
+            <strong data-metric="paymentProofs">0</strong>
+            <small data-metric="purchasesConfirmed">0 compras validadas</small>
+          </article>
         </div>
 
         <div class="content-grid">
@@ -106,7 +112,8 @@
               <h2>WhatsApp</h2>
               <span data-wa-status class="status pending">Cargando</span>
             </div>
-            <div class="qr-large"></div>
+            <div class="qr-large" data-wa-qr-box></div>
+            <img data-wa-qr-img class="qr-img hidden" alt="QR de WhatsApp" />
             <p class="muted" data-wa-copy>Pedí un QR desde la pestaña WhatsApp.</p>
             <div class="actions" style="justify-content:center">
               <button class="btn btn-primary btn-small" data-open-wa>Ir a WhatsApp</button>
@@ -197,6 +204,46 @@
         </div>
       </section>
 
+
+      <section data-panel="purchases" class="hidden">
+        <div class="content-grid">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Comprobantes y compras</h2>
+                <p class="muted">TrueLead registra cuando un lead envía una imagen, PDF, documento, audio o archivo por WhatsApp. La compra se valida manualmente desde acá.</p>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Código</th>
+                    <th>Cliente</th>
+                    <th>Proyecto</th>
+                    <th>Tipo</th>
+                    <th>Estado</th>
+                    <th>Desde</th>
+                    <th>Fecha</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody data-purchases-table>
+                  <tr><td colspan="8">Cargando...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <aside class="panel">
+            <h2>Cómo funciona</h2>
+            <p class="muted">Cuando entra un archivo por WhatsApp, TrueLead lo marca como comprobante recibido. No descarga ni guarda el archivo en esta versión; solo registra el evento para que puedas validar la compra.</p>
+            <div class="notice">
+              Recomendado: validar manualmente el comprobante antes de marcarlo como compra confirmada.
+            </div>
+          </aside>
+        </div>
+      </section>
+
       <section data-panel="whatsapp" class="hidden">
         <div class="content-grid">
           <div class="panel wa-box">
@@ -204,11 +251,12 @@
               <h2>Vinculación de WhatsApp</h2>
               <span data-wa-status-2 class="status pending">Cargando</span>
             </div>
-            <div class="qr-large"></div>
+            <div class="qr-large" data-wa-qr-box></div>
+            <img data-wa-qr-img class="qr-img hidden" alt="QR de WhatsApp" />
             <p class="muted" data-wa-copy-2>Generá un QR para vinculación.</p>
             <div class="actions" style="justify-content:center">
               <button class="btn btn-primary" data-request-qr>Generar QR</button>
-              <button class="btn btn-secondary" data-mark-connected>Marcar conectado demo</button>
+              <button class="btn btn-secondary" data-request-qr>Reconectar / pedir QR</button>
               <button class="btn btn-danger" data-disconnect-wa>Desconectar</button>
             </div>
           </div>

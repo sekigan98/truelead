@@ -1,7 +1,7 @@
 {
   "name": "truelead-functional",
-  "version": "1.1.0",
-  "description": "TrueLead SaaS: website, client app, internal admin backoffice, ARS/USD pricing, lead tracking and Meta CAPI.",
+  "version": "1.2.0",
+  "description": "TrueLead SaaS with client app, admin backoffice, WhatsApp Baileys connector, proof/purchase tracking and Meta CAPI.",
   "main": "src/server.js",
   "type": "module",
   "scripts": {
@@ -20,6 +20,9 @@
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
-    "nanoid": "^5.0.9"
+    "nanoid": "^5.0.9",
+    "@whiskeysockets/baileys": "^6.7.18",
+    "pino": "^9.6.0",
+    "qrcode": "^1.5.4"
   }
 }

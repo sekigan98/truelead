@@ -4,6 +4,7 @@ import { db } from '../lib/db.js';
 import { cleanString, normalizePhone, omitSensitiveProject, nowIso } from '../lib/utils.js';
 import { requireAuth } from '../middleware/auth.js';
 import { getPlanById } from '../lib/pricing.js';
+import { updatePurchaseStatus } from '../services/leadEvents.service.js';
 
 export const agencyRouter = express.Router();
 
@@ -31,6 +32,7 @@ agencyRouter.get('/dashboard', ensureAgencyActive, (req, res) => {
   const clients = db.data.clients.filter((c) => c.agencyId === aid);
   const projects = db.data.projects.filter((p) => p.agencyId === aid);
   const preleads = db.data.preleads.filter((l) => l.agencyId === aid);
+  const purchases = db.data.purchases.filter((p) => p.agencyId === aid);
 
   const clicks = preleads.length;
   const confirmed = preleads.filter((l) => l.status === 'confirmed' || l.status === 'sent_to_meta').length;
@@ -55,6 +57,9 @@ agencyRouter.get('/dashboard', ensureAgencyActive, (req, res) => {
       clicks,
       confirmed,
       sentToMeta,
+      paymentProofs: purchases.length,
+      purchasesConfirmed: purchases.filter((p) => p.status === 'purchase_confirmed').length,
+      purchasesPending: purchases.filter((p) => p.status === 'proof_received').length,
       conversionRate
     },
     recent
@@ -167,4 +172,38 @@ agencyRouter.get('/preleads', ensureAgencyActive, (req, res) => {
       client: clients.find((c) => c.id === lead.clientId)?.name || 'Sin cliente'
     }));
   res.json({ leads });
+});
+
+
+agencyRouter.get('/purchases', ensureAgencyActive, (req, res) => {
+  const aid = agencyId(req);
+  const projects = db.data.projects.filter((p) => p.agencyId === aid);
+  const clients = db.data.clients.filter((c) => c.agencyId === aid);
+
+  const purchases = db.data.purchases
+    .filter((purchase) => purchase.agencyId === aid)
+    .sort((a, b) => String(b.receivedAt || b.createdAt).localeCompare(String(a.receivedAt || a.createdAt)))
+    .map((purchase) => ({
+      ...purchase,
+      project: projects.find((p) => p.id === purchase.projectId)?.name || 'Sin proyecto',
+      client: clients.find((c) => c.id === purchase.clientId)?.name || 'Sin cliente'
+    }));
+
+  res.json({ purchases });
+});
+
+agencyRouter.patch('/purchases/:id/status', ensureAgencyActive, async (req, res) => {
+  const result = await updatePurchaseStatus({
+    purchaseId: req.params.id,
+    agencyId: agencyId(req),
+    status: cleanString(req.body.status, 80),
+    notes: cleanString(req.body.notes, 1000),
+    userId: req.auth.sub
+  });
+
+  if (!result.ok) {
+    return res.status(result.status || 400).json({ error: result.error });
+  }
+
+  res.json({ purchase: result.purchase, prelead: result.prelead });
 });

@@ -11,6 +11,7 @@ import { agencyRouter } from './routes/agency.routes.js';
 import { preleadRouter } from './routes/prelead.routes.js';
 import { adminRouter } from './routes/admin.routes.js';
 import { whatsappRouter } from './routes/whatsapp.routes.js';
+import { whatsappManager } from './services/whatsappBaileys.service.js';
 import { publicRouter } from './routes/public.routes.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -65,6 +66,8 @@ app.get('*', (req, res) => {
 });
 
 await db.init();
+await whatsappManager.init();
+app.locals.whatsappManager = whatsappManager;
 
 app.listen(port, () => {
   console.log(`TrueLead running on http://localhost:${port}`);

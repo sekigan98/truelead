@@ -59,3 +59,15 @@ export function addDays(date, days) {
   d.setDate(d.getDate() + days);
   return d.toISOString();
 }
+
+
+export function jidToPhone(jid) {
+  const raw = String(jid || '').split('@')[0];
+  return normalizePhone(raw);
+}
+
+export function shortHashLabel(hashOrPhone) {
+  const value = String(hashOrPhone || '');
+  if (!value) return '';
+  return value.slice(-8);
+}

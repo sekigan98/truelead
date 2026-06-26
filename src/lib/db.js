@@ -12,6 +12,8 @@ const DEFAULT_DATA = {
   preleads: [],
   payments: [],
   whatsappSessions: [],
+  whatsappMessages: [],
+  purchases: [],
   events: [],
   settings: {
     createdAt: nowIso(),

@@ -10,6 +10,10 @@ services:
         value: production
       - key: DATA_FILE
         value: /var/data/truelead-db.json
+      - key: WHATSAPP_SESSION_DIR
+        value: /var/data/whatsapp-sessions
+      - key: WHATSAPP_AUTO_RESTORE
+        value: false
       - key: JWT_SECRET
         generateValue: true
       - key: ADMIN_EMAIL

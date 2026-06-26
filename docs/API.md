@@ -91,3 +91,36 @@ Requires admin token.
 - `PATCH /api/admin/agencies/:id/status`
 - `POST /api/admin/agencies/:id/payments`
 - `PATCH /api/admin/payments/:id/validate`
+
+
+## WhatsApp/Baileys
+
+Requires auth.
+
+- `GET /api/whatsapp/status`
+- `POST /api/whatsapp/request-qr`
+- `POST /api/whatsapp/reconnect`
+- `POST /api/whatsapp/disconnect`
+- `POST /api/whatsapp/reset`
+
+## Purchases / comprobantes
+
+Requires agency auth.
+
+`GET /api/agency/purchases`
+
+`PATCH /api/agency/purchases/:id/status`
+
+```json
+{
+  "status": "purchase_confirmed",
+  "notes": "Comprobante validado manualmente."
+}
+```
+
+Estados posibles:
+
+- `proof_received`
+- `purchase_confirmed`
+- `rejected`
+- `duplicate`

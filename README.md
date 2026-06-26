@@ -163,3 +163,52 @@ El admin puede:
 - aprobar o rechazar pagos,
 - cambiar el plan y vencimiento de una agencia.
 
+
+
+## Versión con WhatsApp/Baileys + comprobantes
+
+Esta versión agrega un conector real preparado con Baileys.
+
+### Qué hace
+
+- Genera QR real desde el panel de agencia.
+- Guarda sesión en disco persistente.
+- Escucha mensajes entrantes de WhatsApp.
+- Detecta códigos `TL-XXXXX`.
+- Confirma leads automáticamente cuando entra un mensaje con código.
+- Envía `Lead` a Meta CAPI si el proyecto tiene Pixel ID y CAPI token.
+- Detecta imágenes, documentos, videos, audios o stickers como posible comprobante.
+- Registra esos comprobantes en la sección **Comprobantes** del panel.
+- Permite validar manualmente la compra desde TrueLead.
+- No guarda conversaciones completas.
+- No descarga archivos multimedia en esta versión; solo registra el evento para evitar inflar la base.
+
+### Variables nuevas
+
+```env
+WHATSAPP_SESSION_DIR=/var/data/whatsapp-sessions
+WHATSAPP_AUTO_RESTORE=false
+WHATSAPP_DISABLE_RECONNECT=false
+WHATSAPP_QR_WAIT_MS=25000
+WHATSAPP_LOG_LEVEL=silent
+WHATSAPP_ALLOW_DEMO_CONNECT=true
+```
+
+### Flujo de tracking
+
+```txt
+Landing crea prelead TL-XXXXX
+Usuario manda WhatsApp con ese código
+Baileys detecta el mensaje
+TrueLead marca Lead real
+TrueLead intenta mandar Lead a Meta CAPI
+
+Si después el usuario envía imagen/PDF/documento:
+TrueLead registra Comprobante recibido
+La agencia valida manualmente la compra desde el panel
+TrueLead muestra Purchase/compra confirmada dentro del sistema
+```
+
+### Importante
+
+La compra confirmada queda registrada en TrueLead. En esta versión no se manda automáticamente `Purchase` a Meta, porque conviene validar el comprobante antes.

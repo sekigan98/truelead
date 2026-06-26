@@ -28,8 +28,9 @@
       <section class="card step wa-box">
         <span class="badge">Vinculación segura</span>
         <h1>Conectá WhatsApp por QR</h1>
-        <p class="muted">Esta página sirve para enviar a clientes y vincular su WhatsApp. En esta versión el QR es demo y queda listo para integrarlo con el worker real.</p>
-        <div class="qr-large"></div>
+        <p class="muted">Esta página sirve para enviar a clientes y vincular su WhatsApp. El QR se genera con Baileys y permite vincular el WhatsApp del cliente al conector de TrueLead.</p>
+        <div class="qr-large" data-connect-qr-box></div>
+        <img data-connect-qr-img class="qr-img hidden" alt="QR de WhatsApp" />
         <span data-connect-status class="status pending">Esperando QR</span>
         <div class="actions" style="justify-content:center; margin-top:18px">
           <button class="btn btn-primary" data-connect-request>Generar QR</button>
@@ -47,7 +48,7 @@
           <li>Escaneá el código QR de esta página.</li>
         </ol>
         <div class="notice">
-          Luego vamos a conectar esto con Baileys o WhatsApp Cloud API para que el QR sea real.
+          Si el QR vence, generá uno nuevo desde esta misma página o desde el panel de la agencia.
         </div>
       </aside>
     </div>
