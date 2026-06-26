@@ -16,6 +16,7 @@ const DEFAULT_DATA = {
   purchases: [],
   events: [],
   emailLogs: [],
+  emailVerificationTokens: [],
   settings: {
     createdAt: nowIso(),
     schemaVersion: 1

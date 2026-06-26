@@ -1,7 +1,14 @@
 import express from 'express';
 import { nanoid } from 'nanoid';
 import { db } from '../lib/db.js';
-import { cleanString, normalizePhone, omitSensitiveProject, nowIso } from '../lib/utils.js';
+import {
+  cleanString,
+  normalizePhone,
+  omitSensitiveProject,
+  nowIso,
+  parseDateRange,
+  isBetweenDates
+} from '../lib/utils.js';
 import { requireAuth } from '../middleware/auth.js';
 import { getPlanById } from '../lib/pricing.js';
 import { updatePurchaseStatus } from '../services/leadEvents.service.js';
@@ -19,7 +26,9 @@ function ensureAgencyActive(req, res, next) {
   if (!agency) return res.status(404).json({ error: 'Agencia no encontrada.' });
   if (req.auth.role !== 'admin' && agency.status !== 'active') {
     return res.status(402).json({
-      error: 'Cuenta pendiente de validación.',
+      error: agency.status === 'pending_email'
+        ? 'Cuenta pendiente de activación. Revisá el email y tocá el botón de activación.'
+        : 'Cuenta pendiente de validación.',
       agency
     });
   }
@@ -27,40 +36,107 @@ function ensureAgencyActive(req, res, next) {
   return next();
 }
 
-agencyRouter.get('/dashboard', ensureAgencyActive, (req, res) => {
-  const aid = agencyId(req);
-  const clients = db.data.clients.filter((c) => c.agencyId === aid);
-  const projects = db.data.projects.filter((p) => p.agencyId === aid);
-  const preleads = db.data.preleads.filter((l) => l.agencyId === aid);
-  const purchases = db.data.purchases.filter((p) => p.agencyId === aid);
+function inRange(record, from, to, fields = ['createdAt']) {
+  return fields.some((field) => isBetweenDates(record[field], from, to));
+}
+
+function findClient(clients, id) {
+  return clients.find((c) => c.id === id)?.name || 'Sin cliente';
+}
+
+function findProject(projects, id) {
+  return projects.find((p) => p.id === id)?.name || 'Sin proyecto';
+}
+
+function leadStats(lead) {
+  const messages = db.data.whatsappMessages.filter((m) =>
+    m.preleadId === lead.id || (lead.code && m.code === lead.code)
+  );
+  const purchases = db.data.purchases.filter((p) =>
+    p.preleadId === lead.id || (lead.code && p.code === lead.code)
+  );
+  const purchasesConfirmed = purchases.filter((p) => p.status === 'purchase_confirmed').length;
+  return {
+    incomingMessages: messages.length,
+    paymentProofs: purchases.length,
+    purchasesConfirmed,
+    purchaseRate: lead.status === 'confirmed' || lead.status === 'sent_to_meta'
+      ? (purchasesConfirmed > 0 ? 100 : 0)
+      : 0
+  };
+}
+
+function enrichLead(lead, clients, projects) {
+  return {
+    ...lead,
+    client: findClient(clients, lead.clientId),
+    project: findProject(projects, lead.projectId),
+    ...leadStats(lead)
+  };
+}
+
+function metricsFor({ aid, from, to }) {
+  const preleadsAll = db.data.preleads.filter((l) => l.agencyId === aid);
+  const preleads = preleadsAll.filter((l) => inRange(l, from, to, ['createdAt']));
+  const confirmedLeads = preleadsAll.filter((l) =>
+    ['confirmed', 'sent_to_meta'].includes(l.status) &&
+    inRange(l, from, to, ['confirmedAt', 'updatedAt'])
+  );
+  const messages = db.data.whatsappMessages.filter((m) =>
+    m.agencyId === aid && inRange(m, from, to, ['receivedAt', 'createdAt'])
+  );
+  const purchases = db.data.purchases.filter((p) =>
+    p.agencyId === aid && inRange(p, from, to, ['receivedAt', 'createdAt'])
+  );
+  const purchasesConfirmed = db.data.purchases.filter((p) =>
+    p.agencyId === aid && p.status === 'purchase_confirmed' && inRange(p, from, to, ['validatedAt', 'updatedAt', 'createdAt'])
+  );
+  const sentToMeta = confirmedLeads.filter((l) => l.metaStatus === 'sent').length;
 
   const clicks = preleads.length;
-  const confirmed = preleads.filter((l) => l.status === 'confirmed' || l.status === 'sent_to_meta').length;
-  const sentToMeta = preleads.filter((l) => l.metaStatus === 'sent').length;
-  const conversionRate = clicks ? Math.round((confirmed / clicks) * 1000) / 10 : 0;
+  const confirmed = confirmedLeads.length;
+  const totalIncomingMessages = messages.length;
+  const totalPurchasesConfirmed = purchasesConfirmed.length;
+  const leadConversionRate = clicks ? Math.round((confirmed / clicks) * 1000) / 10 : 0;
+  const salesConversionRate = confirmed ? Math.round((totalPurchasesConfirmed / confirmed) * 1000) / 10 : 0;
+  const messageToSaleRate = totalIncomingMessages ? Math.round((totalPurchasesConfirmed / totalIncomingMessages) * 1000) / 10 : 0;
 
-  const recent = [...preleads]
+  return {
+    clicks,
+    confirmed,
+    sentToMeta,
+    totalIncomingMessages,
+    paymentProofs: purchases.length,
+    purchasesConfirmed: totalPurchasesConfirmed,
+    purchasesPending: purchases.filter((p) => p.status === 'proof_received').length,
+    leadConversionRate,
+    conversionRate: leadConversionRate,
+    salesConversionRate,
+    messageToSaleRate
+  };
+}
+
+agencyRouter.get('/dashboard', ensureAgencyActive, (req, res) => {
+  const aid = agencyId(req);
+  const range = parseDateRange(req.query);
+  const clients = db.data.clients.filter((c) => c.agencyId === aid);
+  const projects = db.data.projects.filter((p) => p.agencyId === aid);
+  const preleadsAll = db.data.preleads.filter((l) => l.agencyId === aid);
+  const metrics = metricsFor({ aid, from: range.from, to: range.to });
+
+  const recent = [...preleadsAll]
     .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
     .slice(0, 20)
-    .map((lead) => ({
-      ...lead,
-      project: projects.find((p) => p.id === lead.projectId)?.name || 'Sin proyecto',
-      client: clients.find((c) => c.id === lead.clientId)?.name || 'Sin cliente'
-    }));
+    .map((lead) => enrichLead(lead, clients, projects));
 
   return res.json({
     agency: req.agency,
     plan: getPlanById(req.agency.plan),
+    range,
     metrics: {
       clients: clients.length,
       projects: projects.length,
-      clicks,
-      confirmed,
-      sentToMeta,
-      paymentProofs: purchases.length,
-      purchasesConfirmed: purchases.filter((p) => p.status === 'purchase_confirmed').length,
-      purchasesPending: purchases.filter((p) => p.status === 'proof_received').length,
-      conversionRate
+      ...metrics
     },
     recent
   });
@@ -105,9 +181,14 @@ agencyRouter.delete('/clients/:id', ensureAgencyActive, async (req, res) => {
 });
 
 agencyRouter.get('/projects', ensureAgencyActive, (req, res) => {
+  const session = db.data.whatsappSessions.find((s) => s.agencyId === agencyId(req));
   const projects = db.data.projects
     .filter((p) => p.agencyId === agencyId(req))
-    .map(omitSensitiveProject);
+    .map((project) => omitSensitiveProject({
+      ...project,
+      whatsappLinkedNumber: session?.number || project.whatsappNumber || '',
+      whatsappLinkedStatus: session?.status || 'disconnected'
+    }));
   res.json({ projects });
 });
 
@@ -115,13 +196,16 @@ agencyRouter.post('/projects', ensureAgencyActive, async (req, res) => {
   const client = db.data.clients.find((c) => c.id === req.body.clientId && c.agencyId === agencyId(req));
   if (!client) return res.status(400).json({ error: 'Seleccioná un cliente válido.' });
 
+  const session = db.data.whatsappSessions.find((s) => s.agencyId === agencyId(req));
+
   const project = await db.insert('projects', {
     agencyId: agencyId(req),
     clientId: client.id,
     publicId: 'tl_' + nanoid(10),
     name: cleanString(req.body.name, 160),
     domain: cleanString(req.body.domain, 240),
-    whatsappNumber: normalizePhone(req.body.whatsappNumber),
+    whatsappSessionId: session?.id || `wa_${agencyId(req)}`,
+    whatsappNumber: normalizePhone(session?.number || req.body.whatsappNumber || ''),
     metaPixelId: cleanString(req.body.metaPixelId, 120),
     metaCapiToken: cleanString(req.body.metaCapiToken, 500),
     metaTestEventCode: cleanString(req.body.metaTestEventCode, 120),
@@ -136,10 +220,13 @@ agencyRouter.put('/projects/:id', ensureAgencyActive, async (req, res) => {
   const project = db.data.projects.find((p) => p.id === req.params.id && p.agencyId === agencyId(req));
   if (!project) return res.status(404).json({ error: 'Proyecto no encontrado.' });
 
+  const session = db.data.whatsappSessions.find((s) => s.agencyId === agencyId(req));
+
   const patch = {
     name: cleanString(req.body.name ?? project.name, 160),
     domain: cleanString(req.body.domain ?? project.domain, 240),
-    whatsappNumber: normalizePhone(req.body.whatsappNumber ?? project.whatsappNumber),
+    whatsappSessionId: session?.id || project.whatsappSessionId || `wa_${agencyId(req)}`,
+    whatsappNumber: normalizePhone(session?.number || req.body.whatsappNumber || project.whatsappNumber),
     metaPixelId: cleanString(req.body.metaPixelId ?? project.metaPixelId, 120),
     metaTestEventCode: cleanString(req.body.metaTestEventCode ?? project.metaTestEventCode, 120),
     status: cleanString(req.body.status ?? project.status, 50)
@@ -161,35 +248,34 @@ agencyRouter.delete('/projects/:id', ensureAgencyActive, async (req, res) => {
 
 agencyRouter.get('/preleads', ensureAgencyActive, (req, res) => {
   const aid = agencyId(req);
+  const range = parseDateRange(req.query);
   const projects = db.data.projects.filter((p) => p.agencyId === aid);
   const clients = db.data.clients.filter((c) => c.agencyId === aid);
   const leads = db.data.preleads
     .filter((l) => l.agencyId === aid)
+    .filter((l) => inRange(l, range.from, range.to, ['createdAt', 'confirmedAt', 'updatedAt']))
     .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
-    .map((lead) => ({
-      ...lead,
-      project: projects.find((p) => p.id === lead.projectId)?.name || 'Sin proyecto',
-      client: clients.find((c) => c.id === lead.clientId)?.name || 'Sin cliente'
-    }));
-  res.json({ leads });
+    .map((lead) => enrichLead(lead, clients, projects));
+  res.json({ range, leads, metrics: metricsFor({ aid, from: range.from, to: range.to }) });
 });
-
 
 agencyRouter.get('/purchases', ensureAgencyActive, (req, res) => {
   const aid = agencyId(req);
+  const range = parseDateRange(req.query);
   const projects = db.data.projects.filter((p) => p.agencyId === aid);
   const clients = db.data.clients.filter((c) => c.agencyId === aid);
 
   const purchases = db.data.purchases
     .filter((purchase) => purchase.agencyId === aid)
+    .filter((purchase) => inRange(purchase, range.from, range.to, ['receivedAt', 'validatedAt', 'createdAt', 'updatedAt']))
     .sort((a, b) => String(b.receivedAt || b.createdAt).localeCompare(String(a.receivedAt || a.createdAt)))
     .map((purchase) => ({
       ...purchase,
-      project: projects.find((p) => p.id === purchase.projectId)?.name || 'Sin proyecto',
-      client: clients.find((c) => c.id === purchase.clientId)?.name || 'Sin cliente'
+      project: findProject(projects, purchase.projectId),
+      client: findClient(clients, purchase.clientId)
     }));
 
-  res.json({ purchases });
+  res.json({ range, purchases });
 });
 
 agencyRouter.patch('/purchases/:id/status', ensureAgencyActive, async (req, res) => {

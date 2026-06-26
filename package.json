@@ -1,7 +1,7 @@
 {
   "name": "truelead-functional",
-  "version": "1.2.1",
-  "description": "TrueLead SaaS with client app, admin backoffice, WhatsApp Baileys connector, proof/purchase tracking and Meta CAPI.",
+  "version": "1.3.0",
+  "description": "TrueLead SaaS with automated email activation, QR-linked WhatsApp projects, message analytics, purchases and Meta CAPI.",
   "main": "src/server.js",
   "type": "module",
   "scripts": {

@@ -2,9 +2,9 @@ export const PLAN_DEFINITIONS = [
   {
     id: 'starter',
     name: 'Starter',
-    title: 'Validación manual',
+    title: 'Trial automático',
     usdMonthly: 19,
-    leadsMonthly: 1000,
+    leadsMonthly: null,
     clientsLimit: 3,
     projectsLimit: 5,
     whatsappLimit: 1,
@@ -12,7 +12,7 @@ export const PLAN_DEFINITIONS = [
       '3 clientes',
       '5 proyectos',
       '1 WhatsApp conectado',
-      'Confirmación manual de leads',
+      'Leads reales automáticos',
       'Reportes básicos'
     ]
   },
@@ -21,7 +21,7 @@ export const PLAN_DEFINITIONS = [
     name: 'Pro',
     title: 'Agencias en crecimiento',
     usdMonthly: 49,
-    leadsMonthly: 10000,
+    leadsMonthly: null,
     clientsLimit: 10,
     projectsLimit: 30,
     whatsappLimit: 5,
@@ -30,7 +30,7 @@ export const PLAN_DEFINITIONS = [
       '10 clientes',
       '30 proyectos',
       'Hasta 5 WhatsApps',
-      'Tracking automático preparado',
+      'Tracking automático de leads',
       'Meta Conversions API'
     ]
   },
@@ -39,7 +39,7 @@ export const PLAN_DEFINITIONS = [
     name: 'Agency',
     title: 'Escala y multi-cliente',
     usdMonthly: 99,
-    leadsMonthly: 50000,
+    leadsMonthly: null,
     clientsLimit: 50,
     projectsLimit: 150,
     whatsappLimit: 20,

@@ -6,6 +6,7 @@ import { cleanString, nowIso } from '../lib/utils.js';
 const APP_NAME = process.env.APP_NAME || 'TrueLead';
 const CONTACT_EMAIL = process.env.TRUELEAD_CONTACT_EMAIL || process.env.ADMIN_EMAIL || 'trueleadsite@gmail.com';
 const FROM_EMAIL = process.env.MAIL_FROM || process.env.SMTP_USER || CONTACT_EMAIL;
+const APP_URL = (process.env.APP_URL || process.env.API_PUBLIC_URL || '').replace(/\/$/, '');
 
 let cachedTransporter = null;
 
@@ -28,6 +29,41 @@ function getTransporter() {
   });
 
   return cachedTransporter;
+}
+
+function baseUrl() {
+  return APP_URL || 'http://localhost:3000';
+}
+
+function button(label, href) {
+  return `<a href="${href}" style="display:inline-block;background:linear-gradient(135deg,#2e7cff,#0f61ff);color:#fff;text-decoration:none;font-weight:800;padding:14px 20px;border-radius:14px;margin:18px 0;">${label}</a>`;
+}
+
+function htmlLayout({ title, preview, body }) {
+  return `
+  <div style="margin:0;padding:0;background:#030711;font-family:Inter,Arial,sans-serif;color:#f5f8ff;">
+    <div style="display:none;opacity:0;max-height:0;overflow:hidden;">${preview || title}</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#030711;padding:28px 0;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:620px;background:#07101f;border:1px solid rgba(46,124,255,.22);border-radius:24px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.45);">
+            <tr>
+              <td style="padding:28px 30px 12px;">
+                <div style="font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:#9fc1ff;font-weight:900;">TRUELEAD</div>
+                <h1 style="margin:14px 0 8px;font-size:30px;line-height:1.05;color:#fff;">${title}</h1>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 30px 30px;color:#c5d3f4;font-size:16px;line-height:1.7;">
+                ${body}
+                <p style="margin-top:24px;color:#8da1ce;font-size:13px;">Si no esperabas este email, podés ignorarlo. Ante cualquier duda, escribinos a ${CONTACT_EMAIL}.</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </div>`;
 }
 
 async function logEmail({ to, subject, type, status, error }) {
@@ -81,21 +117,49 @@ function agencyUsers(agencyId) {
   return db.data.users.filter((user) => user.agencyId === agencyId && user.role !== 'admin');
 }
 
-export async function notifyRegistrationPending({ agency, user }) {
+export async function sendVerificationEmail({ agency, user, token }) {
+  const verifyUrl = `${baseUrl()}/verify-email.html?token=${encodeURIComponent(token)}`;
   await sendTrueLeadEmail({
     to: user.email,
-    type: 'registration_pending_user',
-    subject: 'Recibimos tu registro en TrueLead',
-    text: `Hola ${user.name}, recibimos el registro de ${agency.name}. La cuenta quedó pendiente de validación. Te vamos a avisar cuando esté activa.\n\nEquipo TrueLead`,
-    html: `<p>Hola <strong>${user.name}</strong>,</p><p>Recibimos el registro de <strong>${agency.name}</strong>. La cuenta quedó pendiente de validación.</p><p>Te vamos a avisar cuando esté activa.</p><p>Equipo TrueLead</p>`
+    type: 'email_verification',
+    subject: 'Activá tu cuenta de TrueLead',
+    text: `Hola ${user.name}, activá tu cuenta de TrueLead entrando acá: ${verifyUrl}`,
+    html: htmlLayout({
+      title: 'Activá tu cuenta de TrueLead',
+      preview: 'Confirmá tu email y empezá a medir leads reales.',
+      body: `<p>Hola <strong>${user.name}</strong>,</p>
+        <p>Ya recibimos el registro de <strong>${agency.name}</strong>. Para empezar a usar el panel, confirmá tu email con el botón de abajo.</p>
+        ${button('Activar mi cuenta', verifyUrl)}
+        <p>Después de activar la cuenta vas a poder vincular WhatsApp por QR, crear proyectos y empezar a medir leads reales automáticamente.</p>
+        <p style="color:#8da1ce;font-size:13px;word-break:break-all;">${verifyUrl}</p>`
+    })
   });
 
   await sendTrueLeadEmail({
     to: CONTACT_EMAIL,
     type: 'registration_pending_admin',
-    subject: `Nueva cuenta pendiente: ${agency.name}`,
-    text: `Nueva cuenta pendiente de validación.\n\nAgencia: ${agency.name}\nUsuario: ${user.name}\nEmail: ${user.email}\n\nIngresá al backoffice para activarla o cargar pago.`,
-    html: `<p>Nueva cuenta pendiente de validación.</p><ul><li><strong>Agencia:</strong> ${agency.name}</li><li><strong>Usuario:</strong> ${user.name}</li><li><strong>Email:</strong> ${user.email}</li></ul><p>Ingresá al backoffice para activarla o cargar pago.</p>`
+    subject: `Nuevo registro en TrueLead: ${agency.name}`,
+    text: `Nueva cuenta registrada. Agencia: ${agency.name}. Usuario: ${user.name}. Email: ${user.email}.`,
+    html: htmlLayout({
+      title: 'Nuevo registro en TrueLead',
+      preview: `${agency.name} se registró en TrueLead.`,
+      body: `<p>Se registró una nueva cuenta.</p><ul><li><strong>Agencia:</strong> ${agency.name}</li><li><strong>Usuario:</strong> ${user.name}</li><li><strong>Email:</strong> ${user.email}</li></ul><p>La cuenta queda esperando verificación de email y luego entra en trial automáticamente.</p>`
+    })
+  });
+}
+
+export async function sendWelcomeEmail({ agency, user }) {
+  const appUrl = `${baseUrl()}/login.html`;
+  return sendTrueLeadEmail({
+    to: user.email,
+    type: 'account_activated_trial',
+    subject: 'Tu cuenta TrueLead ya está activa',
+    text: `Hola ${user.name}, tu cuenta ${agency.name} ya está activa. Entrá al panel: ${appUrl}`,
+    html: htmlLayout({
+      title: 'Tu cuenta ya está activa',
+      preview: 'Ya podés vincular WhatsApp y medir leads reales.',
+      body: `<p>Hola <strong>${user.name}</strong>,</p><p>La cuenta <strong>${agency.name}</strong> ya está activa en modo trial.</p>${button('Entrar al panel', appUrl)}<p>El próximo paso es vincular WhatsApp por QR y crear tu primer proyecto.</p>`
+    })
   });
 }
 
@@ -106,8 +170,11 @@ export async function notifyAgencyStatusChange({ agency, status }) {
     to: user.email,
     type: 'agency_status_change',
     subject: `Tu cuenta TrueLead está ${statusText}`,
-    text: `Hola ${user.name}, la cuenta ${agency.name} ahora está ${statusText}.\n\nEquipo TrueLead`,
-    html: `<p>Hola <strong>${user.name}</strong>,</p><p>La cuenta <strong>${agency.name}</strong> ahora está <strong>${statusText}</strong>.</p><p>Equipo TrueLead</p>`
+    text: `Hola ${user.name}, la cuenta ${agency.name} ahora está ${statusText}.`,
+    html: htmlLayout({
+      title: `Tu cuenta está ${statusText}`,
+      body: `<p>Hola <strong>${user.name}</strong>,</p><p>La cuenta <strong>${agency.name}</strong> ahora está <strong>${statusText}</strong>.</p>`
+    })
   })));
 }
 
@@ -118,8 +185,11 @@ export async function notifyPaymentValidation({ agency, payment, status }) {
     to: user.email,
     type: 'payment_validation',
     subject: `Pago ${statusText} en TrueLead`,
-    text: `Hola ${user.name}, el pago del plan ${payment.plan} por ${payment.currency} ${payment.amount} fue ${statusText}.\n\nEquipo TrueLead`,
-    html: `<p>Hola <strong>${user.name}</strong>,</p><p>El pago del plan <strong>${payment.plan}</strong> por <strong>${payment.currency} ${payment.amount}</strong> fue <strong>${statusText}</strong>.</p><p>Equipo TrueLead</p>`
+    text: `Hola ${user.name}, el pago del plan ${payment.plan} por ${payment.currency} ${payment.amount} fue ${statusText}.`,
+    html: htmlLayout({
+      title: `Pago ${statusText}`,
+      body: `<p>Hola <strong>${user.name}</strong>,</p><p>El pago del plan <strong>${payment.plan}</strong> por <strong>${payment.currency} ${payment.amount}</strong> fue <strong>${statusText}</strong>.</p>`
+    })
   })));
 }
 
@@ -129,7 +199,10 @@ export async function notifyPlanUpdated({ agency, plan, expiresAt }) {
     to: user.email,
     type: 'plan_updated',
     subject: `Tu plan TrueLead ahora es ${plan.name}`,
-    text: `Hola ${user.name}, tu cuenta ${agency.name} ahora tiene el plan ${plan.name}. Vencimiento: ${expiresAt || 'sin definir'}.\n\nEquipo TrueLead`,
-    html: `<p>Hola <strong>${user.name}</strong>,</p><p>Tu cuenta <strong>${agency.name}</strong> ahora tiene el plan <strong>${plan.name}</strong>.</p><p>Vencimiento: <strong>${expiresAt || 'sin definir'}</strong>.</p><p>Equipo TrueLead</p>`
+    text: `Hola ${user.name}, tu cuenta ${agency.name} ahora tiene el plan ${plan.name}. Vencimiento: ${expiresAt || 'sin definir'}.`,
+    html: htmlLayout({
+      title: `Nuevo plan: ${plan.name}`,
+      body: `<p>Hola <strong>${user.name}</strong>,</p><p>Tu cuenta <strong>${agency.name}</strong> ahora tiene el plan <strong>${plan.name}</strong>.</p><p>Vencimiento: <strong>${expiresAt || 'sin definir'}</strong>.</p>`
+    })
   })));
 }

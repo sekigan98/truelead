@@ -238,3 +238,31 @@ TRUELEAD_CONTACT_EMAIL=trueleadsite@gmail.com
 ```
 
 En Gmail no conviene usar la contraseña normal de la cuenta; usá contraseña de aplicación.
+
+
+## Cambios versión 1.3.0
+
+- Registro con activación por email mediante botón.
+- La cuenta entra en trial automáticamente al verificar el email.
+- Emails HTML con estética TrueLead.
+- El login de cliente/agencia ya no depende de activación manual del admin.
+- Los proyectos usan el WhatsApp vinculado por QR como destino real.
+- El SDK genera un código único por intento/persona y guarda `visitorId`.
+- Baileys registra mensajes entrantes mínimos para estadísticas sin guardar chats completos.
+- Leads muestra celular parcial, mensajes entrantes, comprobantes, ventas y % de compra.
+- Métricas por rango: hoy, 7 días, 30 días, todo o fecha personalizada.
+- Dashboard calcula tasa de lead real y tasa de venta: compras validadas / leads reales.
+
+### Variable importante nueva
+
+Para que el botón de activación del email apunte al dominio correcto, configurar en Render:
+
+```env
+APP_URL=https://TU-SERVICIO.onrender.com
+```
+
+Cuando el dominio esté listo, reemplazar por:
+
+```env
+APP_URL=https://app.truelead.com.ar
+```

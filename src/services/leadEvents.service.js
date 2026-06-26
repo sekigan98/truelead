@@ -56,6 +56,7 @@ export async function confirmPreleadByCode({
   prelead.whatsappFrom = normalizedPhone ? `hash:${phoneLast4(normalizedPhone)}` : prelead.whatsappFrom || '';
   prelead.confirmationSource = source;
   prelead.lastMessagePreview = cleanString(messageText, 180);
+  prelead.incomingMessageCount = Number(prelead.incomingMessageCount || 0) + 1;
   prelead.updatedAt = nowIso();
 
   let metaResult = null;
@@ -85,9 +86,9 @@ function findRecentLeadByPhone({ agencyId, phoneHash }) {
     .filter((lead) =>
       lead.agencyId === agencyId &&
       lead.whatsappFromHash === phoneHash &&
-      ['confirmed', 'sent_to_meta', 'payment_proof_received'].includes(lead.status)
+      ['confirmed', 'sent_to_meta', 'payment_proof_received', 'intent'].includes(lead.status)
     )
-    .sort((a, b) => String(b.confirmedAt || b.createdAt).localeCompare(String(a.confirmedAt || a.createdAt)))[0] || null;
+    .sort((a, b) => String(b.confirmedAt || b.updatedAt || b.createdAt).localeCompare(String(a.confirmedAt || a.updatedAt || a.createdAt)))[0] || null;
 }
 
 export async function registerIncomingWhatsAppMessage({
@@ -110,22 +111,11 @@ export async function registerIncomingWhatsAppMessage({
     prelead = findRecentLeadByPhone({ agencyId, phoneHash });
   }
 
-  const project = prelead ? db.data.projects.find((p) => p.id === prelead.projectId) : null;
-  const client = prelead ? db.data.clients.find((c) => c.id === prelead.clientId) : null;
-
-  /*
-    Para no inflar la base, TrueLead no guarda conversaciones completas.
-    Solo registra mensajes que:
-    - contienen código TL-XXXXX, o
-    - traen archivo/media, posible comprobante.
-  */
-  if (!code && !hasMedia) {
-    return {
-      ok: true,
-      ignored: true,
-      reason: 'Mensaje sin código ni archivo. No se guarda para evitar inflar la base.'
-    };
-  }
+  const detectedEvent = code
+    ? 'lead_code_detected'
+    : hasMedia
+      ? 'media_received'
+      : 'message_received';
 
   const messageRecord = await db.insert('whatsappMessages', {
     agencyId,
@@ -141,7 +131,7 @@ export async function registerIncomingWhatsAppMessage({
     mimeType: cleanString(mimeType, 160),
     fileName: cleanString(fileName, 220),
     textPreview: cleanString(text, 180),
-    detectedEvent: code ? 'lead_code_detected' : (hasMedia ? 'media_received' : 'message_received'),
+    detectedEvent,
     source,
     receivedAt: nowIso()
   });
@@ -156,6 +146,13 @@ export async function registerIncomingWhatsAppMessage({
       messageText: text
     });
     prelead = leadResult.lead || prelead;
+    messageRecord.preleadId = prelead?.id || messageRecord.preleadId;
+    messageRecord.clientId = prelead?.clientId || messageRecord.clientId;
+    messageRecord.projectId = prelead?.projectId || messageRecord.projectId;
+  } else if (prelead) {
+    prelead.incomingMessageCount = Number(prelead.incomingMessageCount || 0) + 1;
+    prelead.lastMessagePreview = cleanString(text, 180) || prelead.lastMessagePreview;
+    prelead.updatedAt = nowIso();
   }
 
   let purchase = null;
@@ -173,6 +170,18 @@ export async function registerIncomingWhatsAppMessage({
       messageRecordId: messageRecord.id
     });
   }
+
+  const project = prelead ? db.data.projects.find((p) => p.id === prelead.projectId) : null;
+  const client = prelead ? db.data.clients.find((c) => c.id === prelead.clientId) : null;
+
+  pushEvent({
+    agencyId,
+    projectId: prelead?.projectId || null,
+    type: 'incoming_message',
+    message: `${messageType}${code ? ` con código ${code}` : ''}${hasMedia ? ' con archivo' : ''}.`
+  });
+
+  await db.save();
 
   return {
     ok: true,

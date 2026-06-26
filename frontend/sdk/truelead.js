@@ -12,6 +12,16 @@
       ?.split('=')[1] || '';
   }
 
+  function getVisitorId() {
+    const key = 'truelead_visitor_id';
+    let value = localStorage.getItem(key);
+    if (!value) {
+      value = 'v_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+      localStorage.setItem(key, value);
+    }
+    return value;
+  }
+
   function collectUtm() {
     const params = new URLSearchParams(location.search);
     const keys = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'ad_id', 'adset_id', 'campaign_id'];
@@ -29,6 +39,7 @@
       body: JSON.stringify({
         projectPublicId,
         landingUrl: location.href,
+        visitorId: getVisitorId(),
         fbp: getCookie('_fbp'),
         fbc: getCookie('_fbc'),
         utm: collectUtm()

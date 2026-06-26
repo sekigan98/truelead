@@ -1,4 +1,3 @@
-
 const user = TrueLeadAPI.user();
 const messageBox = document.querySelector('[data-message]');
 
@@ -17,7 +16,12 @@ let state = {
   projects: [],
   leads: [],
   purchases: [],
-  whatsapp: null
+  whatsapp: null,
+  range: {
+    range: 'month',
+    from: '',
+    to: ''
+  }
 };
 
 function setTab(tab) {
@@ -37,17 +41,35 @@ function setTab(tab) {
 document.querySelectorAll('[data-tab]').forEach(btn => btn.addEventListener('click', () => setTab(btn.dataset.tab)));
 document.querySelectorAll('[data-tab-shortcut]').forEach(btn => btn.addEventListener('click', () => setTab(btn.dataset.tabShortcut)));
 
+function rangeQuery() {
+  const params = new URLSearchParams();
+  params.set('range', state.range.range || 'month');
+  if (state.range.range === 'custom') {
+    if (state.range.from) params.set('from', state.range.from);
+    if (state.range.to) params.set('to', state.range.to);
+  }
+  return params.toString();
+}
+
 function renderMetrics() {
   const metrics = state.dashboard?.metrics || {};
-  document.querySelector('[data-metric="clients"]').textContent = metrics.clients ?? 0;
-  document.querySelector('[data-metric="projects"]').textContent = metrics.projects ?? 0;
-  document.querySelector('[data-metric="clicks"]').textContent = metrics.clicks ?? 0;
-  document.querySelector('[data-metric="confirmed"]').textContent = metrics.confirmed ?? 0;
-  document.querySelector('[data-metric="conversionRate"]').textContent = `${metrics.conversionRate ?? 0}% confirmación`;
-  const proofsEl = document.querySelector('[data-metric="paymentProofs"]');
-  if (proofsEl) proofsEl.textContent = metrics.paymentProofs ?? 0;
+  const set = (name, value) => {
+    const el = document.querySelector(`[data-metric="${name}"]`);
+    if (el) el.textContent = value;
+  };
+  set('clients', metrics.clients ?? 0);
+  set('projects', metrics.projects ?? 0);
+  set('clicks', metrics.clicks ?? 0);
+  set('confirmed', metrics.confirmed ?? 0);
+  set('totalIncomingMessages', metrics.totalIncomingMessages ?? 0);
+  set('paymentProofs', metrics.paymentProofs ?? 0);
+  set('salesConversionRate', `${metrics.salesConversionRate ?? 0}%`);
+
+  const conv = document.querySelector('[data-metric="conversionRate"]');
+  if (conv) conv.textContent = `${metrics.leadConversionRate ?? metrics.conversionRate ?? 0}% confirmación`;
   const confirmedPurchasesEl = document.querySelector('[data-metric="purchasesConfirmed"]');
   if (confirmedPurchasesEl) confirmedPurchasesEl.textContent = `${metrics.purchasesConfirmed ?? 0} compras validadas`;
+
   const agency = state.dashboard?.agency || user.agency || {};
   document.querySelector('[data-agency-plan]').textContent = `${agency.plan || 'starter'} · ${agency.planStatus || agency.status || 'pendiente'}`;
   document.querySelector('[data-agency-status]').textContent = `Estado: ${agency.status || 'pendiente'}`;
@@ -56,19 +78,23 @@ function renderMetrics() {
 function leadRow(lead) {
   const s = TLUtils.statusClass(lead.status);
   const m = TLUtils.statusClass(lead.metaStatus);
+  const purchaseRate = lead.purchaseRate ?? 0;
   return `
     <tr>
       <td><strong>${lead.code}</strong></td>
       <td>${lead.client || '-'}</td>
       <td>${lead.project || '-'}</td>
+      <td>${lead.whatsappFromLast4 ? `••••${lead.whatsappFromLast4}` : '-'}</td>
       <td><span class="tag ${s}">${lead.status || '-'}</span></td>
       <td><span class="tag ${m}">${lead.metaStatus || '-'}</span></td>
-      <td>${lead.landingUrl ? 'Landing' : '-'}</td>
-      <td>${TLUtils.formatDate(lead.createdAt)}</td>
+      <td>${lead.incomingMessages ?? lead.incomingMessageCount ?? 0}</td>
+      <td>${lead.paymentProofs ?? 0}</td>
+      <td>${lead.purchasesConfirmed ?? 0}</td>
+      <td>${purchaseRate}%</td>
+      <td>${TLUtils.formatDate(lead.confirmedAt || lead.createdAt)}</td>
     </tr>
   `;
 }
-
 
 function renderBilling() {
   const agency = state.dashboard?.agency || user.agency || {};
@@ -90,7 +116,7 @@ function renderBilling() {
   set('[data-billing-plan-title]', plan.title || agency.planStatus || 'Plan actual');
   set('[data-billing-expiry]', TLUtils.formatDate(agency.expiresAt));
   set('[data-billing-clients]', `${metrics.clients || 0} / ${plan.clientsLimit ?? '∞'}`);
-  set('[data-billing-leads]', `${metrics.confirmed || 0} / ${plan.leadsMonthly ?? '∞'}`);
+  set('[data-billing-leads]', `${metrics.confirmed || 0} leads reales`);
 
   const features = document.querySelector('[data-billing-features]');
   if (features) {
@@ -113,13 +139,15 @@ function renderLeads() {
         <td>${lead.project || '-'}</td>
         <td><span class="tag ${TLUtils.statusClass(lead.status)}">${lead.status}</span></td>
         <td><span class="tag ${TLUtils.statusClass(lead.metaStatus)}">${lead.metaStatus}</span></td>
-        <td>${TLUtils.formatDate(lead.createdAt)}</td>
+        <td>${lead.incomingMessages ?? 0}</td>
+        <td>${lead.purchasesConfirmed ?? 0}</td>
+        <td>${TLUtils.formatDate(lead.confirmedAt || lead.createdAt)}</td>
       </tr>`).join('')
-    : '<tr><td colspan="6">Todavía no hay leads.</td></tr>';
+    : '<tr><td colspan="8">Todavía no hay leads.</td></tr>';
 
   document.querySelector('[data-leads-table]').innerHTML = state.leads.length
     ? state.leads.map(leadRow).join('')
-    : '<tr><td colspan="7">Todavía no hay leads.</td></tr>';
+    : '<tr><td colspan="11">Todavía no hay leads en este período.</td></tr>';
 }
 
 function renderClients() {
@@ -139,8 +167,7 @@ function renderClients() {
 
 function sdkSnippet(project) {
   const api = location.origin;
-  return `<script src="${api}/sdk/truelead.js" data-project="${project.publicId}" data-api="${api}"><\\/script>
-<a href="#" data-truelead-whatsapp>Enviar WhatsApp</a>`;
+  return `<script src="${api}/sdk/truelead.js" data-project="${project.publicId}" data-api="${api}"><\/script>\n<a href="#" data-truelead-whatsapp>Enviar WhatsApp</a>`;
 }
 
 function renderProjects() {
@@ -149,14 +176,14 @@ function renderProjects() {
     <article class="soft client-card">
       <h3>${p.name}</h3>
       <p>Public ID: <strong>${p.publicId}</strong></p>
-      <p>WhatsApp: ${p.whatsappNumber || '-'}</p>
+      <p>WhatsApp vinculado: ${p.whatsappLinkedNumber || p.whatsappNumber || 'Sin vincular'}</p>
+      <p>Estado WhatsApp: <span class="tag ${TLUtils.statusClass(p.whatsappLinkedStatus)}">${p.whatsappLinkedStatus || 'disconnected'}</span></p>
       <p>Dominio: ${p.domain || '-'}</p>
       <span class="status ${p.status === 'active' ? 'active' : 'pending'}">${p.status}</span>
       <textarea rows="5" readonly style="margin-top:12px">${sdkSnippet(p)}</textarea>
     </article>
-  `).join('') : '<p class="muted">No hay proyectos todavía. Primero creá un cliente.</p>';
+  `).join('') : '<p class="muted">No hay proyectos todavía. Primero creá un cliente y vinculá WhatsApp.</p>';
 }
-
 
 function purchaseRow(purchase) {
   const status = purchase.status || 'proof_received';
@@ -185,7 +212,7 @@ function renderPurchases() {
 
   body.innerHTML = state.purchases.length
     ? state.purchases.map(purchaseRow).join('')
-    : '<tr><td colspan="8">Todavía no hay comprobantes recibidos.</td></tr>';
+    : '<tr><td colspan="8">Todavía no hay comprobantes recibidos en este período.</td></tr>';
 
   body.querySelectorAll('[data-purchase-confirm]').forEach((button) => {
     button.addEventListener('click', () => updatePurchase(button.dataset.purchaseConfirm, 'purchase_confirmed'));
@@ -234,13 +261,14 @@ function renderWhatsapp() {
 }
 
 async function loadAll() {
+  const query = rangeQuery();
   try {
     const [dashboard, clients, projects, leads, purchases, whatsapp] = await Promise.all([
-      TrueLeadAPI.get('/api/agency/dashboard'),
+      TrueLeadAPI.get(`/api/agency/dashboard?${query}`),
       TrueLeadAPI.get('/api/agency/clients'),
       TrueLeadAPI.get('/api/agency/projects'),
-      TrueLeadAPI.get('/api/agency/preleads'),
-      TrueLeadAPI.get('/api/agency/purchases'),
+      TrueLeadAPI.get(`/api/agency/preleads?${query}`),
+      TrueLeadAPI.get(`/api/agency/purchases?${query}`),
       TrueLeadAPI.get('/api/whatsapp/status')
     ]);
     state.dashboard = dashboard;
@@ -261,7 +289,6 @@ async function loadAll() {
     if (String(error.message).includes('No autenticado')) location.href = 'login.html';
   }
 }
-
 
 async function updatePurchase(id, status) {
   const notes = status === 'purchase_confirmed'
@@ -306,7 +333,7 @@ document.querySelector('[data-project-form]')?.addEventListener('submit', async 
     await TrueLeadAPI.post('/api/agency/projects', Object.fromEntries(form.entries()));
     event.target.reset();
     event.target.closest('.modal-backdrop')?.classList.remove('open');
-    TLUtils.showMessage(messageBox, 'Proyecto creado correctamente.', 'success');
+    TLUtils.showMessage(messageBox, 'Proyecto creado correctamente. Va a usar el WhatsApp vinculado por QR.', 'success');
     await loadAll();
   } catch (error) {
     TLUtils.showMessage(messageBox, error.message, 'error');
@@ -338,26 +365,49 @@ document.querySelectorAll('[data-request-qr]').forEach((button) => {
       state.whatsapp = data.session;
       renderWhatsapp();
       TLUtils.showMessage(messageBox, data.message || 'QR solicitado.', 'success');
+      await loadAll();
     } catch (error) {
       TLUtils.showMessage(messageBox, error.message, 'error');
     }
   });
 });
+
 document.querySelector('[data-mark-connected]')?.addEventListener('click', async () => {
   const number = prompt('Número conectado para demo:', '+54 11 0000 0000') || '+54 11 0000 0000';
   const data = await TrueLeadAPI.post('/api/whatsapp/mark-connected', { number, device: 'Demo browser' });
   state.whatsapp = data.session;
   renderWhatsapp();
+  await loadAll();
 });
+
 document.querySelector('[data-disconnect-wa]')?.addEventListener('click', async () => {
   const data = await TrueLeadAPI.post('/api/whatsapp/disconnect', {});
   state.whatsapp = data.session;
   renderWhatsapp();
+  await loadAll();
 });
+
 document.querySelector('[data-open-wa]')?.addEventListener('click', () => setTab('whatsapp'));
 
-loadAll();
+const rangeSelect = document.querySelector('[data-range-filter]');
+const rangeFrom = document.querySelector('[data-range-from]');
+const rangeTo = document.querySelector('[data-range-to]');
+function updateRangeVisibility() {
+  const custom = rangeSelect?.value === 'custom';
+  rangeFrom?.classList.toggle('hidden', !custom);
+  rangeTo?.classList.toggle('hidden', !custom);
+}
+rangeSelect?.addEventListener('change', updateRangeVisibility);
+document.querySelector('[data-apply-range]')?.addEventListener('click', async () => {
+  state.range.range = rangeSelect?.value || 'month';
+  state.range.from = rangeFrom?.value || '';
+  state.range.to = rangeTo?.value || '';
+  updateRangeVisibility();
+  await loadAll();
+});
+updateRangeVisibility();
 
+loadAll();
 
 setInterval(async () => {
   try {

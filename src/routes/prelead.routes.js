@@ -1,13 +1,34 @@
 import express from 'express';
 import { db } from '../lib/db.js';
-import { cleanString, getClientIp, normalizePhone, nowIso, publicCode } from '../lib/utils.js';
+import { cleanString, getClientIp, normalizePhone, nowIso, publicCode, extractLeadCode } from '../lib/utils.js';
 import { requireAuth } from '../middleware/auth.js';
-import {
-  confirmPreleadByCode,
-  registerIncomingWhatsAppMessage
-} from '../services/leadEvents.service.js';
+import { confirmPreleadByCode, registerIncomingWhatsAppMessage } from '../services/leadEvents.service.js';
 
 export const preleadRouter = express.Router();
+
+function generateUniqueLeadCode() {
+  for (let i = 0; i < 20; i++) {
+    const code = publicCode('TL', 6);
+    if (!db.data.preleads.some((lead) => lead.code === code)) return code;
+  }
+  return `TL-${Date.now().toString(36).toUpperCase()}`;
+}
+
+function getProjectWhatsapp(project) {
+  const session = db.data.whatsappSessions.find((item) =>
+    item.id === project.whatsappSessionId || item.agencyId === project.agencyId
+  );
+
+  const sessionNumber = normalizePhone(session?.number || '');
+  const fallbackNumber = normalizePhone(project.whatsappNumber || '');
+  const finalNumber = sessionNumber || fallbackNumber;
+
+  return {
+    number: finalNumber,
+    session,
+    status: session?.status || (fallbackNumber ? 'manual_fallback' : 'missing')
+  };
+}
 
 function buildWhatsAppMessage(project, code) {
   return `Hola, quiero recibir información. Mi código es: ${code}`;
@@ -27,9 +48,14 @@ preleadRouter.post('/preleads', async (req, res) => {
     return res.status(404).json({ error: 'Proyecto no encontrado o inactivo.' });
   }
 
-  const code = publicCode('TL');
+  const whatsapp = getProjectWhatsapp(project);
+  if (!whatsapp.number) {
+    return res.status(400).json({ error: 'Este proyecto todavía no tiene WhatsApp vinculado por QR.' });
+  }
+
+  const code = generateUniqueLeadCode();
   const message = buildWhatsAppMessage(project, code);
-  const whatsappHref = buildWhatsAppHref(project.whatsappNumber, message);
+  const whatsappHref = buildWhatsAppHref(whatsapp.number, message);
 
   const prelead = await db.insert('preleads', {
     agencyId: project.agencyId,
@@ -39,18 +65,21 @@ preleadRouter.post('/preleads', async (req, res) => {
     code,
     status: 'intent',
     metaStatus: 'pending',
-    purchaseStatus: 'none',
     landingUrl: cleanString(req.body.landingUrl || req.headers.referer || '', 500),
+    visitorId: cleanString(req.body.visitorId, 120),
     fbp: cleanString(req.body.fbp, 240),
     fbc: cleanString(req.body.fbc, 240),
     utm: req.body.utm || {},
     ip: getClientIp(req),
     userAgent: cleanString(req.headers['user-agent'], 500),
-    whatsappTo: project.whatsappNumber,
+    whatsappSessionId: whatsapp.session?.id || project.whatsappSessionId || '',
+    whatsappTo: whatsapp.number,
     whatsappHref,
     message,
+    incomingMessageCount: 0,
     confirmedAt: null,
-    metaResponse: null
+    metaResponse: null,
+    purchaseStatus: 'none'
   });
 
   db.data.events.push({
@@ -77,18 +106,17 @@ preleadRouter.post('/preleads', async (req, res) => {
 });
 
 preleadRouter.post('/preleads/:code/confirm', requireAuth, async (req, res) => {
-  const code = cleanString(req.params.code, 40).toUpperCase();
-  const prelead = db.data.preleads.find((l) => l.code === code);
-
-  if (!prelead) return res.status(404).json({ error: 'Código no encontrado.' });
-  if (req.auth.role !== 'admin' && prelead.agencyId !== req.auth.agencyId) {
+  const normalizedCode = cleanString(req.params.code, 40).toUpperCase();
+  const existingLead = db.data.preleads.find((lead) => lead.code === normalizedCode);
+  if (!existingLead) return res.status(404).json({ error: 'Código no encontrado.' });
+  if (req.auth.role !== 'admin' && existingLead.agencyId !== req.auth.agencyId) {
     return res.status(403).json({ error: 'No podés confirmar este lead.' });
   }
 
   const result = await confirmPreleadByCode({
-    code,
+    code: normalizedCode,
     phone: req.body.phone || req.body.whatsappFrom || '',
-    source: req.body.source || 'manual',
+    source: req.body.source || 'manual_panel',
     sendToMeta: req.body.sendToMeta !== false,
     messageText: req.body.messageText || '',
     testEventCode: req.body.testEventCode || ''
@@ -107,16 +135,20 @@ preleadRouter.post('/webhooks/whatsapp/message', async (req, res) => {
     return res.status(401).json({ error: 'Webhook no autorizado.' });
   }
 
-  const agencyId = cleanString(req.body.agencyId, 80);
+  const text = cleanString(req.body.text || req.body.message, 2000);
+  const code = extractLeadCode(text);
+  const prelead = code ? db.data.preleads.find((l) => l.code === code) : null;
+  const agencyId = cleanString(req.body.agencyId || prelead?.agencyId, 80);
+
   if (!agencyId) {
-    return res.status(400).json({ error: 'Falta agencyId para asociar el mensaje.' });
+    return res.status(400).json({ error: 'No se pudo asociar el mensaje a una agencia.' });
   }
 
   const result = await registerIncomingWhatsAppMessage({
     agencyId,
     messageId: req.body.messageId || '',
     from: req.body.from || req.body.phone || '',
-    text: req.body.text || req.body.message || '',
+    text,
     messageType: req.body.messageType || (req.body.hasMedia ? 'document' : 'text'),
     mimeType: req.body.mimeType || '',
     fileName: req.body.fileName || '',

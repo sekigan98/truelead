@@ -40,7 +40,7 @@ if (registerForm) {
         email: form.get('email'),
         password: form.get('password')
       });
-      TLUtils.showMessage(messageBox, 'Cuenta creada. Queda pendiente hasta que TrueLead valide el alta o el pago.', 'success');
+      TLUtils.showMessage(messageBox, 'Cuenta creada. Te enviamos un email con el botón para activar el trial.', 'success');
       registerForm.reset();
     } catch (error) {
       TLUtils.showMessage(messageBox, error.message, 'error');

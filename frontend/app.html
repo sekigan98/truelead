@@ -47,6 +47,16 @@
           <p class="muted" data-subtitle>Controlá leads reales, clientes y proyectos.</p>
         </div>
         <div class="actions">
+          <select data-range-filter style="max-width:150px">
+            <option value="today">Hoy</option>
+            <option value="week">Últimos 7 días</option>
+            <option value="month" selected>Últimos 30 días</option>
+            <option value="all">Todo</option>
+            <option value="custom">Personalizado</option>
+          </select>
+          <input type="date" data-range-from class="hidden" style="max-width:150px" />
+          <input type="date" data-range-to class="hidden" style="max-width:150px" />
+          <button class="btn btn-secondary btn-small" data-apply-range>Aplicar</button>
           <span class="user-chip" data-user-initials>TL</span>
         </div>
       </header>
@@ -76,9 +86,19 @@
             <small data-metric="conversionRate">0% confirmación</small>
           </article>
           <article class="metric">
+            <label>Mensajes entrantes</label>
+            <strong data-metric="totalIncomingMessages">0</strong>
+            <small>WhatsApps recibidos en el período</small>
+          </article>
+          <article class="metric">
             <label>Comprobantes</label>
             <strong data-metric="paymentProofs">0</strong>
             <small data-metric="purchasesConfirmed">0 compras validadas</small>
+          </article>
+          <article class="metric">
+            <label>% ventas</label>
+            <strong data-metric="salesConversionRate">0%</strong>
+            <small>Compras / leads reales</small>
           </article>
         </div>
 
@@ -97,11 +117,13 @@
                     <th>Proyecto</th>
                     <th>Estado</th>
                     <th>Meta</th>
+                    <th>Mensajes</th>
+                    <th>Ventas</th>
                     <th>Fecha</th>
                   </tr>
                 </thead>
                 <tbody data-recent-leads>
-                  <tr><td colspan="6">Cargando...</td></tr>
+                  <tr><td colspan="8">Cargando...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -133,7 +155,7 @@
           </div>
           <aside class="panel">
             <h2>Cómo se usa</h2>
-            <p class="muted">Cada cliente puede tener varios proyectos/landings, su WhatsApp destino y su configuración de Meta.</p>
+            <p class="muted">Cada cliente puede tener varios proyectos/landings. El WhatsApp del proyecto se toma del número vinculado por QR.</p>
           </aside>
         </div>
       </section>
@@ -170,9 +192,13 @@
                     <th>Código</th>
                     <th>Cliente</th>
                     <th>Proyecto</th>
+                    <th>Celular</th>
                     <th>Estado</th>
                     <th>Meta</th>
-                    <th>Origen</th>
+                    <th>Mensajes</th>
+                    <th>Comprobantes</th>
+                    <th>Ventas</th>
+                    <th>% compra</th>
                     <th>Fecha</th>
                   </tr>
                 </thead>
@@ -181,8 +207,8 @@
             </div>
           </div>
           <aside class="panel">
-            <h2>Confirmar código</h2>
-            <p class="muted">Cuando el operador recibe un WhatsApp con código TL-XXXXX, puede confirmarlo manualmente.</p>
+            <h2>Corrección manual</h2>
+            <p class="muted">La detección es automática por WhatsApp. Esta herramienta queda solo para corregir casos donde el cliente envió el código por otro medio.</p>
             <form class="form" data-confirm-form>
               <label>
                 <span>Código</span>
@@ -299,9 +325,9 @@
                 <small>Límite del plan</small>
               </article>
               <article class="metric">
-                <label>Leads mensuales</label>
+                <label>Leads reales</label>
                 <strong data-billing-leads>...</strong>
-                <small>Límite estimado</small>
+                <small>En el período seleccionado</small>
               </article>
             </div>
             <div class="cards-grid" data-billing-features></div>
@@ -342,7 +368,7 @@
         <label><span>Cliente</span><select name="clientId" required data-client-select></select></label>
         <label><span>Nombre del proyecto</span><input name="name" required placeholder="Landing Junio" /></label>
         <label><span>Dominio de landing</span><input name="domain" placeholder="https://cliente.com" /></label>
-        <label><span>WhatsApp destino</span><input name="whatsappNumber" required placeholder="54911..." /></label>
+        <div class="notice">Este proyecto usa automáticamente el WhatsApp vinculado por QR en la pestaña WhatsApp. Ya no hace falta escribir el número manualmente.</div>
         <label><span>Meta Pixel ID</span><input name="metaPixelId" placeholder="123456789" /></label>
         <label><span>Meta CAPI Token</span><textarea name="metaCapiToken" rows="3" placeholder="EAAB..."></textarea></label>
         <label><span>Test Event Code opcional</span><input name="metaTestEventCode" placeholder="TEST12345" /></label>

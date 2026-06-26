@@ -30,7 +30,7 @@ adminRouter.get('/overview', (req, res) => {
     metrics: {
       agencies: agencies.length,
       activeAgencies: agencies.filter((a) => a.status === 'active').length,
-      pendingAgencies: agencies.filter((a) => a.status === 'pending').length,
+      pendingAgencies: agencies.filter((a) => ['pending', 'pending_email'].includes(a.status)).length,
       users: users.length,
       leads: leads.length,
       confirmedLeads: leads.filter((l) => l.status === 'confirmed' || l.status === 'sent_to_meta').length,
@@ -65,7 +65,7 @@ adminRouter.patch('/agencies/:id/status', async (req, res) => {
   if (!agency) return res.status(404).json({ error: 'Agencia no encontrada.' });
 
   const status = cleanString(req.body.status, 40);
-  if (!['active', 'pending', 'suspended'].includes(status)) {
+  if (!['active', 'pending', 'pending_email', 'suspended'].includes(status)) {
     return res.status(400).json({ error: 'Estado inválido.' });
   }
 

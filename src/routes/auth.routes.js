@@ -4,7 +4,7 @@ import { nanoid } from 'nanoid';
 import { db } from '../lib/db.js';
 import { cleanString, nowIso, addDays } from '../lib/utils.js';
 import { signToken, requireAuth } from '../middleware/auth.js';
-import { notifyRegistrationPending } from '../services/email.service.js';
+import { sendVerificationEmail, sendWelcomeEmail } from '../services/email.service.js';
 
 export const authRouter = express.Router();
 
@@ -13,6 +13,26 @@ function publicUser(user) {
   const { passwordHash, ...safe } = user;
   const agency = db.data.agencies.find((a) => a.id === user.agencyId);
   return { ...safe, agency };
+}
+
+function createVerificationToken({ userId, agencyId }) {
+  db.data.emailVerificationTokens = db.data.emailVerificationTokens || [];
+  const existing = db.data.emailVerificationTokens.filter((token) => token.userId === userId && !token.usedAt);
+  for (const token of existing) token.revokedAt = nowIso();
+
+  const token = nanoid(40);
+  db.data.emailVerificationTokens.push({
+    id: nanoid(12),
+    token,
+    userId,
+    agencyId,
+    type: 'email_verification',
+    usedAt: null,
+    revokedAt: null,
+    expiresAt: addDays(new Date(), 7),
+    createdAt: nowIso()
+  });
+  return token;
 }
 
 authRouter.post('/register', async (req, res) => {
@@ -33,56 +53,111 @@ authRouter.post('/register', async (req, res) => {
   const userId = nanoid(12);
   const passwordHash = await bcrypt.hash(password, 10);
 
-  db.data.agencies.push({
+  const agency = {
     id: agencyId,
     name: agencyName,
-    status: 'pending',
+    status: 'pending_email',
     plan: 'starter',
-    planStatus: 'pending_validation',
+    planStatus: 'trial_pending_email',
     createdAt: nowIso(),
     activatedAt: null,
-    expiresAt: addDays(new Date(), 7),
-    notes: 'Cuenta pendiente de validación administrativa.'
-  });
+    expiresAt: addDays(new Date(), 14),
+    notes: 'Cuenta esperando verificación de email. Se activa automáticamente al verificar.'
+  };
 
-  db.data.users.push({
+  const user = {
     id: userId,
     agencyId,
     name,
     email,
     passwordHash,
     role: 'agency',
-    status: 'pending',
+    status: 'pending_email',
+    emailVerifiedAt: null,
     createdAt: nowIso(),
     lastLoginAt: null
-  });
+  };
 
+  db.data.agencies.push(agency);
+  db.data.users.push(user);
   db.data.payments.push({
     id: nanoid(12),
     agencyId,
     amount: 0,
     currency: 'ARS',
     plan: 'starter',
-    status: 'pending',
-    method: 'manual',
-    notes: 'Alta inicial pendiente de validación.',
+    status: 'trial',
+    method: 'trial',
+    notes: 'Trial iniciado al verificar email.',
     createdAt: nowIso(),
     updatedAt: nowIso()
   });
 
+  const token = createVerificationToken({ userId, agencyId });
   await db.save();
 
-  const agency = db.data.agencies.find((a) => a.id === agencyId);
-  const createdUser = db.data.users.find((u) => u.id === userId);
-  notifyRegistrationPending({ agency, user: createdUser }).catch((error) => {
-    console.warn('[email] registration notification failed:', error.message);
+  sendVerificationEmail({ agency, user, token }).catch((error) => {
+    console.warn('[email] verification email failed:', error.message);
   });
 
   return res.status(201).json({
     ok: true,
-    message: 'Cuenta creada. Queda pendiente de validación administrativa.',
-    user: publicUser(db.data.users.find((u) => u.id === userId))
+    message: 'Cuenta creada. Te enviamos un email para activarla y empezar el trial.',
+    user: publicUser(user)
   });
+});
+
+authRouter.post('/resend-verification', async (req, res) => {
+  const email = cleanString(req.body.email, 180).toLowerCase();
+  const user = db.data.users.find((u) => u.email === email);
+  if (!user) return res.status(404).json({ error: 'No encontramos una cuenta con ese email.' });
+  if (user.emailVerifiedAt) return res.json({ ok: true, message: 'La cuenta ya está verificada.' });
+
+  const agency = db.data.agencies.find((a) => a.id === user.agencyId);
+  const token = createVerificationToken({ userId: user.id, agencyId: user.agencyId });
+  await db.save();
+
+  await sendVerificationEmail({ agency, user, token });
+  res.json({ ok: true, message: 'Reenviamos el email de activación.' });
+});
+
+authRouter.get('/verify-email', async (req, res) => {
+  const tokenValue = cleanString(req.query.token, 120);
+  const token = db.data.emailVerificationTokens?.find((item) => item.token === tokenValue && !item.usedAt && !item.revokedAt);
+
+  if (!token) return res.status(400).json({ error: 'Token inválido o ya utilizado.' });
+  if (new Date(token.expiresAt).getTime() < Date.now()) {
+    return res.status(400).json({ error: 'El link de activación expiró. Solicitá uno nuevo.' });
+  }
+
+  const user = db.data.users.find((u) => u.id === token.userId);
+  const agency = db.data.agencies.find((a) => a.id === token.agencyId);
+  if (!user || !agency) return res.status(404).json({ error: 'Cuenta no encontrada.' });
+
+  token.usedAt = nowIso();
+  user.status = 'active';
+  user.emailVerifiedAt = user.emailVerifiedAt || nowIso();
+  agency.status = 'active';
+  agency.planStatus = 'trial';
+  agency.activatedAt = agency.activatedAt || nowIso();
+  agency.expiresAt = agency.expiresAt || addDays(new Date(), 14);
+  agency.notes = 'Cuenta activada automáticamente por verificación de email.';
+
+  db.data.events.push({
+    id: `ev_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+    agencyId: agency.id,
+    type: 'email_verified',
+    message: `Cuenta ${agency.name} activada por verificación de email.`,
+    createdAt: nowIso()
+  });
+
+  await db.save();
+
+  sendWelcomeEmail({ agency, user }).catch((error) => {
+    console.warn('[email] welcome email failed:', error.message);
+  });
+
+  return res.json({ ok: true, message: 'Cuenta activada correctamente. Ya podés ingresar.', user: publicUser(user) });
 });
 
 authRouter.post('/login', async (req, res) => {
@@ -96,6 +171,10 @@ authRouter.post('/login', async (req, res) => {
 
   if (user.status === 'suspended') {
     return res.status(403).json({ error: 'Tu cuenta está suspendida. Contactá soporte.' });
+  }
+
+  if (user.status === 'pending_email') {
+    return res.status(403).json({ error: 'Tu cuenta todavía no está activa. Revisá tu email y tocá el botón de activación.' });
   }
 
   user.lastLoginAt = nowIso();

@@ -18,10 +18,10 @@ export function sha256(value) {
   return crypto.createHash('sha256').update(normalized).digest('hex');
 }
 
-export function publicCode(prefix = 'TL') {
+export function publicCode(prefix = 'TL', length = 6) {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let out = '';
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < length; i++) {
     out += alphabet[Math.floor(Math.random() * alphabet.length)];
   }
   return `${prefix}-${out}`;
@@ -70,4 +70,57 @@ export function shortHashLabel(hashOrPhone) {
   const value = String(hashOrPhone || '');
   if (!value) return '';
   return value.slice(-8);
+}
+
+
+export function startOfDay(date = new Date()) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+export function endOfDay(date = new Date()) {
+  const d = new Date(date);
+  d.setHours(23, 59, 59, 999);
+  return d;
+}
+
+export function parseDateRange(query = {}) {
+  const range = String(query.range || 'month');
+  const now = new Date();
+  let from;
+  let to = endOfDay(now);
+
+  if (range === 'today') {
+    from = startOfDay(now);
+  } else if (range === 'week') {
+    from = startOfDay(now);
+    from.setDate(from.getDate() - 6);
+  } else if (range === 'custom') {
+    from = query.from ? startOfDay(new Date(query.from)) : startOfDay(now);
+    to = query.to ? endOfDay(new Date(query.to)) : endOfDay(now);
+  } else if (range === 'all') {
+    from = new Date('2020-01-01T00:00:00.000Z');
+  } else {
+    from = startOfDay(now);
+    from.setDate(from.getDate() - 29);
+  }
+
+  if (Number.isNaN(from.getTime())) from = startOfDay(now);
+  if (Number.isNaN(to.getTime())) to = endOfDay(now);
+
+  return {
+    range,
+    from: from.toISOString(),
+    to: to.toISOString()
+  };
+}
+
+export function isBetweenDates(value, fromIso, toIso) {
+  if (!value) return false;
+  const time = new Date(value).getTime();
+  const from = new Date(fromIso).getTime();
+  const to = new Date(toIso).getTime();
+  if (Number.isNaN(time) || Number.isNaN(from) || Number.isNaN(to)) return false;
+  return time >= from && time <= to;
 }
