@@ -120,3 +120,46 @@ JWT_SECRET=generar_un_secreto
 WHATSAPP_WEBHOOK_SECRET=generar_otro_secreto
 ```
 
+
+
+## Cambios de esta versión
+
+### Separación de paneles
+
+- `login.html`: acceso cliente/agencia.
+- `register.html`: registro público de agencias/clientes TrueLead.
+- `app.html`: panel de cliente/agencia para clientes, proyectos, WhatsApp, leads, Meta CAPI y Mi Plan.
+- `admin-login.html`: acceso exclusivo al backoffice interno.
+- `admin.html`: backoffice TrueLead para validar cuentas, pagos, planes y vencimientos.
+
+### Pricing ARS/USD
+
+La landing consulta:
+
+```txt
+GET /api/public/pricing
+```
+
+Si detecta Argentina, muestra precios en ARS. Si no, muestra USD.
+
+El valor de conversión se configura desde Render con:
+
+```env
+TRUELEAD_USD_ARS_RATE=1200
+```
+
+Para modificar los precios en pesos:
+1. Ir al servicio en Render.
+2. Environment.
+3. Cambiar `TRUELEAD_USD_ARS_RATE`.
+4. Redeploy.
+
+### Backoffice de planes
+
+El admin puede:
+- ver precios calculados por plan,
+- activar/suspender agencias,
+- cargar pagos manuales,
+- aprobar o rechazar pagos,
+- cambiar el plan y vencimiento de una agencia.
+

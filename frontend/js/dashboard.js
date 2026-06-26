@@ -27,7 +27,8 @@ function setTab(tab) {
     clients: 'Clientes',
     projects: 'Proyectos',
     leads: 'Leads reales',
-    whatsapp: 'WhatsApp'
+    whatsapp: 'WhatsApp',
+    billing: 'Mi plan'
   }[tab] || 'Resumen';
   document.querySelector('[data-title]').textContent = title;
 }
@@ -60,6 +61,40 @@ function leadRow(lead) {
       <td>${TLUtils.formatDate(lead.createdAt)}</td>
     </tr>
   `;
+}
+
+
+function renderBilling() {
+  const agency = state.dashboard?.agency || user.agency || {};
+  const plan = state.dashboard?.plan || {};
+  const metrics = state.dashboard?.metrics || {};
+
+  const status = document.querySelector('[data-plan-status]');
+  if (status) {
+    status.className = `status ${agency.status === 'active' ? 'active' : 'pending'}`;
+    status.textContent = agency.status || 'pendiente';
+  }
+
+  const set = (selector, value) => {
+    const el = document.querySelector(selector);
+    if (el) el.textContent = value;
+  };
+
+  set('[data-billing-plan]', plan.name || agency.plan || 'Starter');
+  set('[data-billing-plan-title]', plan.title || agency.planStatus || 'Plan actual');
+  set('[data-billing-expiry]', TLUtils.formatDate(agency.expiresAt));
+  set('[data-billing-clients]', `${metrics.clients || 0} / ${plan.clientsLimit ?? '∞'}`);
+  set('[data-billing-leads]', `${metrics.confirmed || 0} / ${plan.leadsMonthly ?? '∞'}`);
+
+  const features = document.querySelector('[data-billing-features]');
+  if (features) {
+    features.innerHTML = (plan.features || []).map(feature => `
+      <article class="soft client-card">
+        <strong>${feature}</strong>
+        <p>Incluido en tu plan actual.</p>
+      </article>
+    `).join('');
+  }
 }
 
 function renderLeads() {
@@ -146,6 +181,7 @@ async function loadAll() {
     state.leads = leads.leads || [];
     state.whatsapp = whatsapp.session || {};
     renderMetrics();
+    renderBilling();
     renderLeads();
     renderClients();
     renderProjects();

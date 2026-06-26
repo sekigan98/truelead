@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Admin — TrueLead</title>
+  <title>Backoffice — TrueLead</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -21,6 +21,7 @@
         <button data-admin-tab="overview" class="active">Resumen</button>
         <button data-admin-tab="agencies">Agencias</button>
         <button data-admin-tab="payments">Pagos</button>
+        <button data-admin-tab="plans">Planes y precios</button>
         <a href="app.html">Panel agencia</a>
       </nav>
       <div class="sidebar-bottom">
@@ -36,8 +37,8 @@
     <main class="main">
       <header class="app-top">
         <div>
-          <h1>Panel administrador</h1>
-          <p class="muted">Validá agencias, pagos y estado de cuentas.</p>
+          <h1>Backoffice TrueLead</h1>
+          <p class="muted">Administrá cuentas, planes, pagos, vencimientos y configuración comercial.</p>
         </div>
         <span class="user-chip">AD</span>
       </header>
@@ -110,6 +111,21 @@
           </div>
         </div>
       </section>
+
+      <section data-admin-panel="plans" class="hidden">
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Planes y precios</h2>
+              <p class="muted">Los precios ARS se calculan con la variable de Render <strong>TRUELEAD_USD_ARS_RATE</strong>.</p>
+            </div>
+            <button class="btn btn-secondary btn-small" data-reload-admin>Actualizar</button>
+          </div>
+          <div class="notice" data-rate-note>Tipo de cambio cargando...</div>
+          <div class="pricing" data-admin-pricing-grid style="margin-top:18px"></div>
+        </div>
+      </section>
+
     </main>
   </div>
 

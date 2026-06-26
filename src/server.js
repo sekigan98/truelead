@@ -11,6 +11,7 @@ import { agencyRouter } from './routes/agency.routes.js';
 import { preleadRouter } from './routes/prelead.routes.js';
 import { adminRouter } from './routes/admin.routes.js';
 import { whatsappRouter } from './routes/whatsapp.routes.js';
+import { publicRouter } from './routes/public.routes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -47,6 +48,7 @@ app.get('/health', (req, res) => {
   });
 });
 
+app.use('/api/public', publicRouter);
 app.use('/api/auth', authRouter);
 app.use('/api', preleadRouter);
 app.use('/api/agency', agencyRouter);

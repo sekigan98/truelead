@@ -3,6 +3,7 @@ import { nanoid } from 'nanoid';
 import { db } from '../lib/db.js';
 import { cleanString, nowIso, addDays } from '../lib/utils.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
+import { getPricingForRequest, getPlanById } from '../lib/pricing.js';
 
 export const adminRouter = express.Router();
 
@@ -12,6 +13,11 @@ function publicUser(user) {
   const { passwordHash, ...safe } = user;
   return safe;
 }
+
+adminRouter.get('/pricing', (req, res) => {
+  res.json(getPricingForRequest(req));
+});
+
 
 adminRouter.get('/overview', (req, res) => {
   const agencies = db.data.agencies;
@@ -127,6 +133,40 @@ adminRouter.patch('/payments/:id/validate', async (req, res) => {
   }
 
   res.json({ payment: updatedPayment });
+});
+
+
+adminRouter.patch('/agencies/:id/plan', async (req, res) => {
+  const agency = db.data.agencies.find((a) => a.id === req.params.id);
+  if (!agency) return res.status(404).json({ error: 'Agencia no encontrada.' });
+
+  const planId = cleanString(req.body.plan || agency.plan || 'starter', 40);
+  const plan = getPlanById(planId);
+  const expiresAt = cleanString(req.body.expiresAt || agency.expiresAt || addDays(new Date(), 30), 80);
+  const planStatus = cleanString(req.body.planStatus || agency.planStatus || 'active', 60);
+
+  const updated = await db.update('agencies', agency.id, {
+    plan: plan.id,
+    planStatus,
+    expiresAt,
+    status: req.body.activate === false ? agency.status : 'active',
+    activatedAt: agency.activatedAt || nowIso()
+  });
+
+  for (const user of db.data.users.filter((u) => u.agencyId === agency.id && u.role !== 'admin')) {
+    if (updated.status === 'active') user.status = 'active';
+  }
+
+  db.data.events.push({
+    id: `ev_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+    agencyId: agency.id,
+    type: 'plan_updated',
+    message: `Plan actualizado a ${plan.name} para ${agency.name}.`,
+    createdAt: nowIso()
+  });
+
+  await db.save();
+  res.json({ agency: updated, plan });
 });
 
 adminRouter.get('/users', (req, res) => {

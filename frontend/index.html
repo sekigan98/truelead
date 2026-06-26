@@ -170,38 +170,38 @@
     <section class="section container" id="pricing">
       <div class="section-head center">
         <span class="badge">Precios</span>
-        <h2>Planes base para validar el producto</h2>
-        <p class="muted">Los precios son editables. La lógica de pagos manuales ya viene preparada.</p>
+        <h2>Planes simples para Argentina y exterior</h2>
+        <p class="muted" data-pricing-note>Detectamos tu ubicación para mostrar ARS o USD. El valor del dólar se actualiza desde Render con TRUELEAD_USD_ARS_RATE.</p>
       </div>
-      <div class="pricing">
-        <article class="card price-card">
-          <span class="pill">Starter</span>
-          <h3>Manual</h3>
-          <strong class="price">USD 19<span>/mes</span></strong>
-          <ul>
+      <div class="pricing" data-pricing-grid>
+        <article class="card price-card" data-price-plan="starter">
+          <span class="pill" data-plan-name>Starter</span>
+          <h3 data-plan-title>Validación manual</h3>
+          <strong class="price" data-plan-price>...</strong>
+          <ul data-plan-features>
             <li>3 clientes</li>
             <li>Confirmación manual</li>
             <li>Reportes básicos</li>
           </ul>
           <a class="btn btn-secondary btn-full" href="register.html">Empezar</a>
         </article>
-        <article class="card price-card featured">
-          <span class="pill">Pro</span>
-          <h3>Agencias</h3>
-          <strong class="price">USD 49<span>/mes</span></strong>
-          <ul>
+        <article class="card price-card featured" data-price-plan="pro">
+          <span class="pill" data-plan-name>Pro</span>
+          <h3 data-plan-title>Agencias</h3>
+          <strong class="price" data-plan-price>...</strong>
+          <ul data-plan-features>
             <li>10 clientes</li>
             <li>Vinculación por QR</li>
             <li>Meta CAPI</li>
           </ul>
           <a class="btn btn-primary btn-full" href="register.html">Crear cuenta</a>
         </article>
-        <article class="card price-card">
-          <span class="pill">Agency</span>
-          <h3>Escala</h3>
-          <strong class="price">Consultar</strong>
-          <ul>
-            <li>Clientes ilimitados</li>
+        <article class="card price-card" data-price-plan="agency">
+          <span class="pill" data-plan-name>Agency</span>
+          <h3 data-plan-title>Escala</h3>
+          <strong class="price" data-plan-price>...</strong>
+          <ul data-plan-features>
+            <li>Clientes avanzados</li>
             <li>Múltiples WhatsApps</li>
             <li>Soporte prioritario</li>
           </ul>
@@ -216,9 +216,11 @@
       <img src="assets/logo.png" alt="TrueLead" />
       <span>TRUELEAD</span>
     </a>
-    <span>© <span data-year></span> TrueLead. Todos los derechos reservados.</span>
+    <span>© <span data-year></span> TrueLead. Todos los derechos reservados. · <a href="admin-login.html">Admin</a></span>
   </footer>
 
+  <script src="js/api.js"></script>
+  <script src="js/pricing.js"></script>
   <script src="js/public.js"></script>
 </body>
 </html>

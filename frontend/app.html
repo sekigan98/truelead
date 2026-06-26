@@ -24,6 +24,7 @@
         <button data-tab="projects">Proyectos</button>
         <button data-tab="leads">Leads</button>
         <button data-tab="whatsapp">WhatsApp <span class="pill">QR</span></button>
+        <button data-tab="billing">Mi plan</button>
         <a href="connect.html">Página de vinculación</a>
         <a data-admin-link class="hidden" href="admin.html">Panel admin</a>
       </nav>
@@ -225,6 +226,48 @@
           </aside>
         </div>
       </section>
+
+      <section data-panel="billing" class="hidden">
+        <div class="content-grid">
+          <div class="panel">
+            <div class="panel-head">
+              <h2>Mi plan</h2>
+              <span data-plan-status class="status pending">Cargando</span>
+            </div>
+            <div class="metrics">
+              <article class="metric">
+                <label>Plan actual</label>
+                <strong data-billing-plan>...</strong>
+                <small data-billing-plan-title>...</small>
+              </article>
+              <article class="metric">
+                <label>Vencimiento</label>
+                <strong data-billing-expiry>...</strong>
+                <small>Renovación / expiración</small>
+              </article>
+              <article class="metric">
+                <label>Clientes</label>
+                <strong data-billing-clients>...</strong>
+                <small>Límite del plan</small>
+              </article>
+              <article class="metric">
+                <label>Leads mensuales</label>
+                <strong data-billing-leads>...</strong>
+                <small>Límite estimado</small>
+              </article>
+            </div>
+            <div class="cards-grid" data-billing-features></div>
+          </div>
+          <aside class="panel">
+            <h2>Estado comercial</h2>
+            <p class="muted">Si el pago está pendiente o el plan venció, el administrador interno de TrueLead puede validarlo desde el backoffice.</p>
+            <div class="notice">
+              El cliente/agencia no valida pagos desde acá. Este panel solo muestra su plan y consumo.
+            </div>
+          </aside>
+        </div>
+      </section>
+
     </main>
   </div>
 

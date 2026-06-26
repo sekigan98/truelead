@@ -1,7 +1,7 @@
 {
   "name": "truelead-functional",
-  "version": "1.0.0",
-  "description": "TrueLead functional MVP: SaaS web + backend for real WhatsApp lead tracking and Meta CAPI.",
+  "version": "1.1.0",
+  "description": "TrueLead SaaS: website, client app, internal admin backoffice, ARS/USD pricing, lead tracking and Meta CAPI.",
   "main": "src/server.js",
   "type": "module",
   "scripts": {

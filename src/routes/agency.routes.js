@@ -3,6 +3,7 @@ import { nanoid } from 'nanoid';
 import { db } from '../lib/db.js';
 import { cleanString, normalizePhone, omitSensitiveProject, nowIso } from '../lib/utils.js';
 import { requireAuth } from '../middleware/auth.js';
+import { getPlanById } from '../lib/pricing.js';
 
 export const agencyRouter = express.Router();
 
@@ -47,6 +48,7 @@ agencyRouter.get('/dashboard', ensureAgencyActive, (req, res) => {
 
   return res.json({
     agency: req.agency,
+    plan: getPlanById(req.agency.plan),
     metrics: {
       clients: clients.length,
       projects: projects.length,

@@ -18,6 +18,8 @@ services:
         sync: false
       - key: CORS_ORIGIN
         sync: false
+      - key: TRUELEAD_USD_ARS_RATE
+        value: 1200
     disk:
       name: truelead-data
       mountPath: /var/data

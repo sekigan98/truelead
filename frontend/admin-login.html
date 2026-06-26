@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Panel cliente — TrueLead</title>
+  <title>Admin interno — TrueLead</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -17,24 +17,24 @@
         <img src="assets/logo.png" alt="TrueLead" />
         <span>TRUELEAD</span>
       </a>
-      <h1>Panel cliente/agencia</h1>
-      <p class="muted">Entrá al panel para gestionar clientes, proyectos, WhatsApp, leads y Meta CAPI.</p>
+      <span class="badge" style="margin-top:18px">Backoffice interno</span>
+      <h1>Administración TrueLead</h1>
+      <p class="muted">Acceso interno para validar cuentas, pagos, planes y vencimientos.</p>
       <div data-message class="notice hidden"></div>
 
-      <form class="form" data-login-form data-login-destination="client">
+      <form class="form" data-login-form data-login-destination="admin">
         <label>
-          <span>Email</span>
+          <span>Email administrador</span>
           <input type="email" name="email" required placeholder="admin@truelead.local" />
         </label>
         <label>
           <span>Contraseña</span>
           <input type="password" name="password" required placeholder="••••••••" />
         </label>
-        <button class="btn btn-primary btn-full" type="submit">Ingresar</button>
+        <button class="btn btn-primary btn-full" type="submit">Entrar al backoffice</button>
       </form>
 
-      <p class="muted">¿No tenés cuenta? <a class="blue-text" href="register.html">Crear cuenta</a></p>
-      <div class="notice">El acceso administrador está separado: <a class="blue-text" href="admin-login.html">abrir backoffice</a>.</div>
+      <p class="muted">¿Sos cliente/agencia? <a class="blue-text" href="login.html">Ingresar al panel cliente</a></p>
     </section>
   </main>
   <script src="js/api.js"></script>

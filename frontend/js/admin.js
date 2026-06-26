@@ -2,16 +2,16 @@
 const user = TrueLeadAPI.user();
 const messageBox = document.querySelector('[data-message]');
 
-if (!user) location.href = 'login.html';
+if (!user) location.href = 'admin-login.html';
 if (user?.role !== 'admin') location.href = 'app.html';
 
 document.querySelector('[data-admin-name]').textContent = user.name || 'Admin';
 document.querySelector('[data-logout]')?.addEventListener('click', () => {
   TrueLeadAPI.clearSession();
-  location.href = 'login.html';
+  location.href = 'admin-login.html';
 });
 
-let adminState = { overview: null, agencies: [] };
+let adminState = { overview: null, agencies: [], pricing: null };
 
 function setAdminTab(tab) {
   document.querySelectorAll('[data-admin-tab]').forEach(btn => btn.classList.toggle('active', btn.dataset.adminTab === tab));
@@ -55,7 +55,8 @@ function renderAgencies() {
       <td>
         <div class="actions">
           <button class="btn btn-primary btn-small" data-activate="${a.id}">Activar</button>
-          <button class="btn btn-secondary btn-small" data-payment="${a.id}">Cargar pago</button>
+          <button class="btn btn-secondary btn-small" data-change-plan="${a.id}">Plan</button>
+          <button class="btn btn-secondary btn-small" data-payment="${a.id}">Pago</button>
           <button class="btn btn-danger btn-small" data-suspend="${a.id}">Suspender</button>
         </div>
       </td>
@@ -65,6 +66,7 @@ function renderAgencies() {
   body.querySelectorAll('[data-activate]').forEach(btn => btn.addEventListener('click', () => updateAgencyStatus(btn.dataset.activate, 'active')));
   body.querySelectorAll('[data-suspend]').forEach(btn => btn.addEventListener('click', () => updateAgencyStatus(btn.dataset.suspend, 'suspended')));
   body.querySelectorAll('[data-payment]').forEach(btn => btn.addEventListener('click', () => createPayment(btn.dataset.payment)));
+  body.querySelectorAll('[data-change-plan]').forEach(btn => btn.addEventListener('click', () => changePlan(btn.dataset.changePlan)));
 }
 
 function allPayments() {
@@ -95,17 +97,40 @@ function renderPayments() {
   body.querySelectorAll('[data-reject-payment]').forEach(btn => btn.addEventListener('click', () => validatePayment(btn.dataset.rejectPayment, 'rejected')));
 }
 
+function renderPricing() {
+  const pricing = adminState.pricing;
+  const grid = document.querySelector('[data-admin-pricing-grid]');
+  const rateNote = document.querySelector('[data-rate-note]');
+  if (!pricing || !grid) return;
+
+  rateNote.textContent = `Tipo de cambio activo en Render: 1 USD = $${Number(pricing.usdArsRate).toLocaleString('es-AR')} ARS. Para cambiarlo, editá TRUELEAD_USD_ARS_RATE en Environment de Render y redeploy.`;
+
+  grid.innerHTML = pricing.plans.map(plan => `
+    <article class="card price-card ${plan.featured ? 'featured' : ''}">
+      <span class="pill">${plan.name}</span>
+      <h3>${plan.title}</h3>
+      <strong class="price">${plan.displayPrice}${plan.displaySuffix ? `<span>${plan.displaySuffix}</span>` : ''}</strong>
+      <p class="muted">USD base: ${plan.usdMonthly == null ? 'Consultar' : `USD ${plan.usdMonthly}`}</p>
+      <p class="muted">ARS calculado: ${plan.arsMonthly == null ? 'Consultar' : `$${Number(plan.arsMonthly).toLocaleString('es-AR')}`}</p>
+      <ul>${plan.features.map(f => `<li>${f}</li>`).join('')}</ul>
+    </article>
+  `).join('');
+}
+
 async function loadAdmin() {
   try {
-    const [overview, agencies] = await Promise.all([
+    const [overview, agencies, pricing] = await Promise.all([
       TrueLeadAPI.get('/api/admin/overview'),
-      TrueLeadAPI.get('/api/admin/agencies')
+      TrueLeadAPI.get('/api/admin/agencies'),
+      TrueLeadAPI.get('/api/admin/pricing?country=AR')
     ]);
     adminState.overview = overview;
     adminState.agencies = agencies.agencies || [];
+    adminState.pricing = pricing;
     renderOverview();
     renderAgencies();
     renderPayments();
+    renderPricing();
   } catch (error) {
     TLUtils.showMessage(messageBox, error.message, 'error');
   }
@@ -115,6 +140,26 @@ async function updateAgencyStatus(id, status) {
   try {
     await TrueLeadAPI.patch(`/api/admin/agencies/${id}/status`, { status });
     TLUtils.showMessage(messageBox, `Agencia actualizada: ${status}`, 'success');
+    await loadAdmin();
+  } catch (error) {
+    TLUtils.showMessage(messageBox, error.message, 'error');
+  }
+}
+
+async function changePlan(agencyId) {
+  const agency = adminState.agencies.find(a => a.id === agencyId);
+  const planOptions = (adminState.pricing?.plans || []).map(p => p.id).join(', ');
+  const plan = prompt(`Nuevo plan (${planOptions}):`, agency?.plan || 'pro');
+  if (!plan) return;
+  const expiresAt = prompt('Vencimiento ISO o fecha YYYY-MM-DD:', agency?.expiresAt || new Date(Date.now() + 30 * 86400000).toISOString());
+  try {
+    await TrueLeadAPI.patch(`/api/admin/agencies/${agencyId}/plan`, {
+      plan,
+      expiresAt,
+      planStatus: 'active',
+      activate: true
+    });
+    TLUtils.showMessage(messageBox, `Plan actualizado a ${plan}.`, 'success');
     await loadAdmin();
   } catch (error) {
     TLUtils.showMessage(messageBox, error.message, 'error');
@@ -132,7 +177,7 @@ async function createPayment(agencyId) {
       plan,
       status: 'pending',
       method: 'manual',
-      notes: 'Pago cargado desde panel admin.'
+      notes: 'Pago cargado desde backoffice.'
     });
     TLUtils.showMessage(messageBox, 'Pago cargado correctamente.', 'success');
     await loadAdmin();
