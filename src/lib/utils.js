@@ -12,6 +12,27 @@ export function normalizePhone(value) {
   return String(value ?? '').replace(/\D/g, '');
 }
 
+export function normalizeWhatsAppNumber(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '';
+
+  // Baileys devuelve el JID propio con suffix de dispositivo, por ejemplo:
+  // 5491124649559:2@s.whatsapp.net. Para abrir wa.me solo sirve el número
+  // antes de ':'; si se normaliza todo junto queda mal: 54911246495592.
+  const localPart = raw.split('@')[0] || raw;
+  const withoutDeviceSuffix = localPart.split(':')[0];
+  let digits = normalizePhone(withoutDeviceSuffix);
+
+  // Reparación conservadora para sesiones ya guardadas con el bug anterior
+  // en números móviles argentinos: 54 + 9 + 10 dígitos = 13 dígitos.
+  // Si quedó 549 + 11 dígitos, normalmente el último es el device id de Baileys.
+  if (/^549\d{11}$/.test(digits)) {
+    digits = digits.slice(0, -1);
+  }
+
+  return digits;
+}
+
 export function sha256(value) {
   const normalized = String(value ?? '').trim().toLowerCase();
   if (!normalized) return undefined;
@@ -141,8 +162,7 @@ export function originMatchesAuthorizedDomains(originValue, allowedValue) {
 
 
 export function jidToPhone(jid) {
-  const raw = String(jid || '').split('@')[0];
-  return normalizePhone(raw);
+  return normalizeWhatsAppNumber(jid);
 }
 
 export function shortHashLabel(hashOrPhone) {

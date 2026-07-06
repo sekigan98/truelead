@@ -360,3 +360,9 @@ https://www.cliente.com
 
 Cuando una landing llama a `POST /api/preleads`, TrueLead verifica el `Origin`/`Referer` contra esos dominios.
 Si el dominio no coincide, no crea el prelead ni genera código TL. Esto permite usar el SDK en landings externas sin editar `CORS_ORIGIN` en Render para cada cliente.
+
+## Fix WhatsApp Baileys number suffix
+
+- Se normaliza el JID propio de Baileys antes de guardarlo como número público.
+- Corrige casos como `5491124649559:2@s.whatsapp.net`, que antes terminaban como `54911246495592`.
+- En el arranque se reparan sesiones/proyectos ya guardados con ese formato incorrecto para que el SDK abra `wa.me` con el número real.

@@ -9,7 +9,7 @@ import makeWASocket, {
   useMultiFileAuthState
 } from '@whiskeysockets/baileys';
 import { db } from '../lib/db.js';
-import { cleanString, jidToPhone, nowIso } from '../lib/utils.js';
+import { cleanString, jidToPhone, normalizeWhatsAppNumber, nowIso } from '../lib/utils.js';
 import { registerIncomingWhatsAppMessage } from './leadEvents.service.js';
 
 function getDataRoot() {
@@ -101,12 +101,36 @@ export class WhatsAppBaileysManager {
     await fs.mkdir(this.sessionRoot, { recursive: true });
 
     // Migration suave: sesiones viejas sin label/clientId siguen funcionando.
+    // También repara números propios guardados desde Baileys con suffix de dispositivo
+    // (ej.: 5491124649559:2@s.whatsapp.net -> 5491124649559).
+    let migrated = false;
     for (const session of db.data.whatsappSessions || []) {
       session.label = session.label || 'WhatsApp principal';
       session.clientId = session.clientId || '';
       session.updatedAt = session.updatedAt || nowIso();
+
+      const fixedNumber = normalizeWhatsAppNumber(session.number || '');
+      if (fixedNumber && fixedNumber !== session.number) {
+        session.number = fixedNumber;
+        session.updatedAt = nowIso();
+        migrated = true;
+      }
     }
-    await db.save();
+
+    for (const project of db.data.projects || []) {
+      const fixedProjectNumber = normalizeWhatsAppNumber(project.whatsappNumber || '');
+      if (fixedProjectNumber && fixedProjectNumber !== project.whatsappNumber) {
+        project.whatsappNumber = fixedProjectNumber;
+        project.updatedAt = nowIso();
+        migrated = true;
+      }
+    }
+
+    if (migrated) {
+      await db.save();
+    } else {
+      await db.save();
+    }
 
     if (process.env.WHATSAPP_AUTO_RESTORE === 'true') {
       const sessions = db.data.whatsappSessions.filter((session) =>
@@ -178,7 +202,13 @@ export class WhatsAppBaileysManager {
 
   async updateSession(agencyId, sessionId, patch) {
     const session = this.ensureSessionRecord({ agencyId, sessionId });
-    Object.assign(session, patch, {
+    const normalizedPatch = { ...patch };
+
+    if (Object.prototype.hasOwnProperty.call(normalizedPatch, 'number')) {
+      normalizedPatch.number = normalizeWhatsAppNumber(normalizedPatch.number);
+    }
+
+    Object.assign(session, normalizedPatch, {
       updatedAt: nowIso()
     });
     await db.save();

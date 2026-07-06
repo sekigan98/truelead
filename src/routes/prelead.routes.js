@@ -4,6 +4,7 @@ import {
   cleanString,
   getClientIp,
   normalizePhone,
+  normalizeWhatsAppNumber,
   nowIso,
   publicCode,
   extractLeadCode,
@@ -83,8 +84,8 @@ function getProjectWhatsapp(project) {
     );
   }
 
-  const sessionNumber = normalizePhone(session?.number || '');
-  const fallbackNumber = normalizePhone(project.whatsappNumber || '');
+  const sessionNumber = normalizeWhatsAppNumber(session?.number || '');
+  const fallbackNumber = normalizeWhatsAppNumber(project.whatsappNumber || '');
   const finalNumber = sessionNumber || fallbackNumber;
 
   return {
@@ -107,7 +108,7 @@ function buildWhatsAppMessage(project, code, template = '') {
 }
 
 function buildWhatsAppHref(phone, message) {
-  const normalized = normalizePhone(phone);
+  const normalized = normalizeWhatsAppNumber(phone);
   if (!normalized) return '';
   return `https://wa.me/${normalized}?text=${encodeURIComponent(message)}`;
 }

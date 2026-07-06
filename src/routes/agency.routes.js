@@ -4,6 +4,7 @@ import { db } from '../lib/db.js';
 import {
   cleanString,
   normalizePhone,
+  normalizeWhatsAppNumber,
   omitSensitiveProject,
   nowIso,
   parseDateRange,
@@ -271,7 +272,7 @@ agencyRouter.post('/projects', ensureAgencyActive, async (req, res) => {
     name: cleanString(req.body.name, 160),
     domain: normalizeAuthorizedDomains(req.body.domain),
     whatsappSessionId: session.id,
-    whatsappNumber: normalizePhone(session.number || ''),
+    whatsappNumber: normalizeWhatsAppNumber(session.number || ''),
     metaPixelId: cleanString(req.body.metaPixelId, 120),
     metaCapiToken: cleanString(req.body.metaCapiToken, 500),
     metaTestEventCode: cleanString(req.body.metaTestEventCode, 120),
@@ -303,7 +304,7 @@ agencyRouter.put('/projects/:id', ensureAgencyActive, async (req, res) => {
     name: cleanString(req.body.name ?? project.name, 160),
     domain: normalizeAuthorizedDomains(req.body.domain ?? project.domain),
     whatsappSessionId: session.id,
-    whatsappNumber: normalizePhone(session.number || project.whatsappNumber),
+    whatsappNumber: normalizeWhatsAppNumber(session.number || project.whatsappNumber),
     metaPixelId: cleanString(req.body.metaPixelId ?? project.metaPixelId, 120),
     metaTestEventCode: cleanString(req.body.metaTestEventCode ?? project.metaTestEventCode, 120),
     status: cleanString(req.body.status ?? project.status, 50)

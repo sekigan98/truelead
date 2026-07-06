@@ -1,6 +1,6 @@
 import express from 'express';
 import { db } from '../lib/db.js';
-import { cleanString } from '../lib/utils.js';
+import { cleanString, normalizeWhatsAppNumber } from '../lib/utils.js';
 import { requireAuth } from '../middleware/auth.js';
 
 export const whatsappRouter = express.Router();
@@ -135,7 +135,7 @@ whatsappRouter.post('/mark-connected', async (req, res) => {
 
   const session = await getManager(req).updateSession(req.auth.agencyId, sessionId, {
     status: 'connected',
-    number: req.body.number || '+54 11 0000 0000',
+    number: normalizeWhatsAppNumber(req.body.number || '+54 11 0000 0000'),
     device: req.body.device || 'Demo browser',
     lastError: '',
     qr: null,
