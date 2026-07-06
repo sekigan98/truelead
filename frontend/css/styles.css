@@ -205,6 +205,23 @@ input, select, textarea {
   outline: none;
 }
 input:focus, select:focus, textarea:focus { border-color: rgba(46,124,255,.55); box-shadow: 0 0 0 4px rgba(46,124,255,.10); }
+
+select {
+  color-scheme: dark;
+  appearance: auto;
+}
+
+select option {
+  background: #07101f;
+  color: #f5f8ff;
+}
+
+select option:checked,
+select option:hover {
+  background: #1f6fff;
+  color: #ffffff;
+}
+
 .notice { padding: 13px 14px; border-radius: 14px; background: rgba(46,124,255,.12); color: #d8e7ff; border: 1px solid rgba(46,124,255,.18); }
 .notice.error { background: rgba(255,93,115,.12); color: #ffd9df; border-color: rgba(255,93,115,.18); }
 .notice.success { background: rgba(45,213,132,.12); color: #ceffdf; border-color: rgba(45,213,132,.18); }

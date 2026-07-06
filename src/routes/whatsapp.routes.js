@@ -98,7 +98,7 @@ whatsappRouter.post('/disconnect', async (req, res) => {
     const session = await getManager(req).disconnect(req.auth.agencyId, sessionId);
     if (!session) return res.status(404).json({ error: 'WhatsApp vinculado no encontrado.' });
 
-    res.json({ session: enrichSession(req, session) });
+    res.json({ session: enrichSession(req, session), removed: true, message: 'WhatsApp desvinculado correctamente.' });
   } catch (err) {
     res.status(500).json({ error: err.message || 'No se pudo desconectar WhatsApp.' });
   }

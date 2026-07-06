@@ -344,7 +344,7 @@ function renderWhatsappSessions() {
         ${session.lastError ? `<p class="muted">Error: ${session.lastError}</p>` : ''}
         <div class="actions">
           <button class="btn btn-primary btn-small" data-session-qr="${session.id}">Generar QR / Reconectar</button>
-          <button class="btn btn-danger btn-small" data-session-disconnect="${session.id}">Desconectar</button>
+          <button class="btn btn-danger btn-small" data-session-disconnect="${session.id}">Desvincular</button>
         </div>
       </article>
     `).join('')
@@ -497,10 +497,13 @@ async function requestQrForSession(sessionId) {
 }
 
 async function disconnectSession(sessionId) {
+  const ok = confirm('¿Desvincular este WhatsApp? Se cerrará la sesión, se borrará el QR guardado y los proyectos que lo usaban quedarán sin WhatsApp asignado.');
+  if (!ok) return;
+
   try {
     await TrueLeadAPI.post('/api/whatsapp/disconnect', { sessionId });
     await loadAll();
-    TLUtils.showMessage(messageBox, 'WhatsApp desconectado.', 'success');
+    TLUtils.showMessage(messageBox, 'WhatsApp desvinculado y eliminado del panel.', 'success');
   } catch (error) {
     TLUtils.showMessage(messageBox, error.message, 'error');
   }

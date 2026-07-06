@@ -93,6 +93,7 @@ export class WhatsAppBaileysManager {
   constructor() {
     this.instances = new Map();
     this.qrWaiters = new Map();
+    this.intentionalDisconnects = new Set();
     this.sessionRoot = getDataRoot();
   }
 
@@ -267,6 +268,16 @@ export class WhatsAppBaileysManager {
 
       if (connection === 'close') {
         const statusCode = lastDisconnect?.error?.output?.statusCode;
+
+        // Cuando el cierre lo pidió el usuario desde el panel, Baileys suele devolver
+        // "Intentional Logout". No debe mostrarse como error ni recrear la sesión.
+        if (this.intentionalDisconnects.has(sid)) {
+          this.intentionalDisconnects.delete(sid);
+          this.instances.delete(sid);
+          this.qrWaiters.delete(sid);
+          return;
+        }
+
         const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
 
         await this.updateSession(agencyId, sid, {
@@ -353,6 +364,20 @@ export class WhatsAppBaileysManager {
     const session = this.getSession(agencyId, sessionId);
     if (!session) return null;
 
+    // En TrueLead, "Desconectar" significa eliminar el vínculo de WhatsApp:
+    // cerrar Baileys, borrar credenciales del disco y quitar la tarjeta del panel.
+    const removedSession = {
+      ...session,
+      status: 'removed',
+      qr: null,
+      qrDataUrl: null,
+      lastError: '',
+      lastActivityAt: nowIso(),
+      updatedAt: nowIso()
+    };
+
+    this.intentionalDisconnects.add(session.id);
+
     const instance = this.instances.get(session.id);
     if (instance?.sock) {
       try {
@@ -364,30 +389,26 @@ export class WhatsAppBaileysManager {
     }
 
     this.instances.delete(session.id);
+    this.qrWaiters.delete(session.id);
 
-    return this.updateSession(agencyId, session.id, {
-      status: 'disconnected',
-      qr: null,
-      qrDataUrl: null,
-      lastActivityAt: nowIso()
-    });
+    await fs.rm(path.join(this.sessionRoot, sessionFolderName(session.id)), { recursive: true, force: true });
+
+    db.data.whatsappSessions = (db.data.whatsappSessions || []).filter((item) => item.id !== session.id);
+
+    // Si algún proyecto usaba este WhatsApp, queda sin WhatsApp asignado hasta que el usuario elija otro.
+    for (const project of db.data.projects || []) {
+      if (project.agencyId === agencyId && project.whatsappSessionId === session.id) {
+        project.whatsappSessionId = '';
+        project.updatedAt = nowIso();
+      }
+    }
+
+    await db.save();
+    return removedSession;
   }
 
   async resetSession(agencyId, sessionId = '') {
-    const session = this.getSession(agencyId, sessionId);
-    if (!session) return null;
-
-    await this.disconnect(agencyId, session.id);
-    await fs.rm(path.join(this.sessionRoot, sessionFolderName(session.id)), { recursive: true, force: true });
-    return this.updateSession(agencyId, session.id, {
-      status: 'disconnected',
-      qr: null,
-      qrDataUrl: null,
-      number: '',
-      device: '',
-      lastError: 'Sesión reseteada.',
-      lastActivityAt: nowIso()
-    });
+    return this.disconnect(agencyId, sessionId);
   }
 }
 
