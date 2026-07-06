@@ -68,6 +68,32 @@ function leadPhone(lead) {
   return lead.phoneDisplay || lead.whatsappFromPhone || lead.phone || (lead.whatsappFromLast4 ? `••••${lead.whatsappFromLast4}` : '-');
 }
 
+function planCapabilities() {
+  return state.dashboard?.capabilities || state.dashboard?.plan?.capabilities || {};
+}
+
+function canExportLeads() {
+  return Boolean(planCapabilities().canExportLeads);
+}
+
+function renderExportGate() {
+  const capabilities = planCapabilities();
+  const canExport = canExportLeads();
+  document.querySelectorAll('[data-export-format]').forEach((button) => {
+    button.disabled = !canExport;
+    button.classList.toggle('is-disabled', !canExport);
+    button.title = canExport ? '' : (capabilities.exportLabel || 'Exportación disponible desde Agency');
+  });
+
+  const note = document.querySelector('[data-export-note]');
+  if (note) {
+    note.textContent = canExport
+      ? 'Exportación habilitada para tu plan. El archivo descarga teléfonos completos.'
+      : (capabilities.exportLabel || 'La exportación CSV/XLSX está disponible desde Agency.');
+    note.classList.toggle('success', canExport);
+  }
+}
+
 function exportFileNameFromResponse(response, fallback) {
   const disposition = response.headers.get('Content-Disposition') || '';
   const match = disposition.match(/filename="?([^";]+)"?/i);
@@ -117,8 +143,19 @@ function renderMetrics() {
   if (confirmedPurchasesEl) confirmedPurchasesEl.textContent = `${metrics.purchasesConfirmed ?? 0} compras validadas`;
 
   const agency = state.dashboard?.agency || user.agency || {};
-  document.querySelector('[data-agency-plan]').textContent = `${agency.plan || 'starter'} · ${agency.planStatus || agency.status || 'pendiente'}`;
+  const plan = state.dashboard?.plan || {};
+  const capabilities = planCapabilities();
+  document.querySelector('[data-agency-plan]').textContent = `${plan.name || agency.plan || 'starter'} · ${agency.planStatus || agency.status || 'pendiente'}`;
   document.querySelector('[data-agency-status]').textContent = `Estado: ${agency.status || 'pendiente'}`;
+
+  const phonePolicy = document.querySelector('[data-phone-policy]');
+  if (phonePolicy) {
+    phonePolicy.textContent = capabilities.canViewFullPhones
+      ? (capabilities.canExportLeads ? 'Teléfonos completos + exportación habilitada.' : 'Teléfonos completos visibles. Exportación disponible en Agency.')
+      : 'Starter: teléfonos enmascarados, solo últimos 4 dígitos.';
+  }
+
+  renderExportGate();
 }
 
 function leadRow(lead) {
@@ -162,6 +199,8 @@ function renderBilling() {
   set('[data-billing-plan-title]', plan.title || agency.planStatus || 'Plan actual');
   set('[data-billing-expiry]', TLUtils.formatDate(agency.expiresAt));
   set('[data-billing-clients]', `${metrics.clients || 0} / ${plan.clientsLimit ?? '∞'}`);
+  set('[data-billing-projects]', `${metrics.projects || 0} / ${plan.projectsLimit ?? '∞'}`);
+  set('[data-billing-whatsapp]', `${state.whatsappSessions.length || 0} / ${plan.whatsappLimit ?? '∞'}`);
   set('[data-billing-leads]', `${metrics.confirmed || 0} leads reales`);
 
   const features = document.querySelector('[data-billing-features]');
@@ -717,6 +756,11 @@ async function disconnectSession(sessionId) {
 
 
 async function downloadLeadExport(format) {
+  if (!canExportLeads()) {
+    TLUtils.showMessage(messageBox, planCapabilities().exportLabel || 'La exportación está disponible desde Agency.', 'error');
+    return;
+  }
+
   const form = document.querySelector('[data-export-form]');
   const mode = form?.elements?.mode?.value || 'full';
   const params = new URLSearchParams();

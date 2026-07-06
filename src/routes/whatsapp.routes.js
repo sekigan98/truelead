@@ -2,6 +2,7 @@ import express from 'express';
 import { db } from '../lib/db.js';
 import { cleanString, normalizeWhatsAppNumber } from '../lib/utils.js';
 import { requireAuth } from '../middleware/auth.js';
+import { getPlanById, isWithinPlanLimit } from '../lib/pricing.js';
 
 export const whatsappRouter = express.Router();
 
@@ -46,6 +47,13 @@ whatsappRouter.post('/request-qr', async (req, res) => {
       const client = db.data.clients.find((c) => c.id === clientId && c.agencyId === req.auth.agencyId);
       if (!client) {
         return res.status(400).json({ error: 'Seleccioná un cliente válido para vincular este WhatsApp.' });
+      }
+
+      const agency = db.data.agencies.find((a) => a.id === req.auth.agencyId);
+      const plan = getPlanById(agency?.plan || 'starter');
+      const current = db.data.whatsappSessions.filter((session) => session.agencyId === req.auth.agencyId).length;
+      if (!isWithinPlanLimit(current, plan.whatsappLimit)) {
+        return res.status(403).json({ error: `Tu plan ${plan.name} permite hasta ${plan.whatsappLimit} WhatsApp(s) conectados. Actualizá el plan para agregar más.` });
       }
     }
 

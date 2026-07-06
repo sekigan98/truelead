@@ -13,7 +13,7 @@ import {
   normalizeAuthorizedDomains
 } from '../lib/utils.js';
 import { requireAuth } from '../middleware/auth.js';
-import { getPlanById } from '../lib/pricing.js';
+import { getPlanById, getPlanCapabilities, isWithinPlanLimit } from '../lib/pricing.js';
 import { updatePurchaseStatus } from '../services/leadEvents.service.js';
 
 export const agencyRouter = express.Router();
@@ -74,10 +74,39 @@ function latestLeadPhone(lead) {
   return fromPurchase || '';
 }
 
-function formatPhoneForPanel(phone, last4 = '') {
+function maskPhone(phone, last4 = '') {
   const normalized = normalizePhone(phone);
-  if (normalized) return normalized;
-  return last4 ? `••••${last4}` : '';
+  const suffix = normalized ? normalized.slice(-4) : String(last4 || '').slice(-4);
+  return suffix ? `••••${suffix}` : '';
+}
+
+function formatPhoneForPanel(phone, last4 = '', capabilities = { canViewFullPhones: true }) {
+  const normalized = normalizePhone(phone);
+  if (capabilities?.canViewFullPhones && normalized) return normalized;
+  return maskPhone(normalized, last4);
+}
+
+function agencyCapabilities(req) {
+  if (req.auth?.role === 'admin') {
+    return { ...getPlanCapabilities('enterprise'), canViewFullPhones: true, canExportLeads: true };
+  }
+  return getPlanCapabilities(req.agency?.plan || 'starter');
+}
+
+function usageForAgency(aid) {
+  return {
+    clients: db.data.clients.filter((c) => c.agencyId === aid).length,
+    projects: db.data.projects.filter((p) => p.agencyId === aid).length,
+    whatsappSessions: db.data.whatsappSessions.filter((s) => s.agencyId === aid).length
+  };
+}
+
+function enforceLimit(res, { current, limit, label, planName }) {
+  if (isWithinPlanLimit(current, limit)) return true;
+  res.status(403).json({
+    error: `Tu plan ${planName} permite hasta ${limit} ${label}. Actualizá el plan para agregar más.`
+  });
+  return false;
 }
 
 function enrichProjectWhatsapp(project) {
@@ -118,15 +147,20 @@ function leadStats(lead) {
   };
 }
 
-function enrichLead(lead, clients, projects) {
+function enrichLead(lead, clients, projects, { capabilities = { canViewFullPhones: true } } = {}) {
   const phone = latestLeadPhone(lead);
+  const phoneDisplay = formatPhoneForPanel(phone, lead.whatsappFromLast4, capabilities);
+  const safePhone = capabilities?.canViewFullPhones ? phone : '';
   return {
     ...lead,
     client: findClient(clients, lead.clientId),
     project: findProject(projects, lead.projectId),
-    whatsappFromPhone: phone,
-    phone,
-    phoneDisplay: formatPhoneForPanel(phone, lead.whatsappFromLast4),
+    whatsappFromPhone: safePhone,
+    whatsappFrom: safePhone,
+    phone: safePhone,
+    phoneDisplay,
+    phoneMasked: maskPhone(phone, lead.whatsappFromLast4),
+    phoneVisibility: capabilities?.phoneVisibility || 'full',
     ...leadStats(lead)
   };
 }
@@ -191,7 +225,7 @@ function buildLeadExportRows({ aid, from, to, mode = 'full' }) {
   let leads = db.data.preleads
     .filter((lead) => lead.agencyId === aid)
     .filter((lead) => inRange(lead, from, to, ['createdAt', 'confirmedAt', 'updatedAt']))
-    .map((lead) => enrichLead(lead, clients, projects));
+    .map((lead) => enrichLead(lead, clients, projects, { capabilities: { canViewFullPhones: true, phoneVisibility: 'full' } }));
 
   if (mode === 'confirmed' || mode === 'numbers') {
     leads = leads.filter((lead) => ['confirmed', 'sent_to_meta', 'payment_proof_received'].includes(lead.status));
@@ -264,15 +298,19 @@ agencyRouter.get('/dashboard', ensureAgencyActive, (req, res) => {
   const projects = db.data.projects.filter((p) => p.agencyId === aid);
   const preleadsAll = db.data.preleads.filter((l) => l.agencyId === aid);
   const metrics = metricsFor({ aid, from: range.from, to: range.to });
+  const capabilities = agencyCapabilities(req);
+  const usage = usageForAgency(aid);
 
   const recent = [...preleadsAll]
     .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
     .slice(0, 20)
-    .map((lead) => enrichLead(lead, clients, projects));
+    .map((lead) => enrichLead(lead, clients, projects, { capabilities }));
 
   return res.json({
     agency: req.agency,
-    plan: getPlanById(req.agency.plan),
+    plan: { ...getPlanById(req.agency.plan), capabilities },
+    capabilities,
+    usage,
     range,
     metrics: {
       clients: clients.length,
@@ -289,6 +327,10 @@ agencyRouter.get('/clients', ensureAgencyActive, (req, res) => {
 });
 
 agencyRouter.post('/clients', ensureAgencyActive, async (req, res) => {
+  const plan = getPlanById(req.agency.plan);
+  const current = db.data.clients.filter((c) => c.agencyId === agencyId(req)).length;
+  if (!enforceLimit(res, { current, limit: plan.clientsLimit, label: 'clientes', planName: plan.name })) return;
+
   const client = await db.insert('clients', {
     agencyId: agencyId(req),
     name: cleanString(req.body.name, 160),
@@ -368,6 +410,10 @@ agencyRouter.get('/projects', ensureAgencyActive, (req, res) => {
 });
 
 agencyRouter.post('/projects', ensureAgencyActive, async (req, res) => {
+  const plan = getPlanById(req.agency.plan);
+  const current = db.data.projects.filter((p) => p.agencyId === agencyId(req)).length;
+  if (!enforceLimit(res, { current, limit: plan.projectsLimit, label: 'proyectos', planName: plan.name })) return;
+
   const client = db.data.clients.find((c) => c.id === req.body.clientId && c.agencyId === agencyId(req));
   if (!client) return res.status(400).json({ error: 'Seleccioná un cliente válido.' });
 
@@ -439,6 +485,11 @@ agencyRouter.delete('/projects/:id', ensureAgencyActive, async (req, res) => {
 
 
 agencyRouter.get('/exports/leads', ensureAgencyActive, (req, res) => {
+  const capabilities = agencyCapabilities(req);
+  if (!capabilities.canExportLeads) {
+    return res.status(403).json({ error: capabilities.exportLabel || 'La exportación está disponible desde Agency.' });
+  }
+
   const aid = agencyId(req);
   const range = parseDateRange(req.query);
   const mode = cleanString(req.query.mode || 'full', 40);
@@ -458,12 +509,13 @@ agencyRouter.get('/preleads', ensureAgencyActive, (req, res) => {
   const range = parseDateRange(req.query);
   const projects = db.data.projects.filter((p) => p.agencyId === aid);
   const clients = db.data.clients.filter((c) => c.agencyId === aid);
+  const capabilities = agencyCapabilities(req);
   const leads = db.data.preleads
     .filter((l) => l.agencyId === aid)
     .filter((l) => inRange(l, range.from, range.to, ['createdAt', 'confirmedAt', 'updatedAt']))
     .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
-    .map((lead) => enrichLead(lead, clients, projects));
-  res.json({ range, leads, metrics: metricsFor({ aid, from: range.from, to: range.to }) });
+    .map((lead) => enrichLead(lead, clients, projects, { capabilities }));
+  res.json({ range, leads, metrics: metricsFor({ aid, from: range.from, to: range.to }), capabilities });
 });
 
 agencyRouter.get('/purchases', ensureAgencyActive, (req, res) => {
@@ -480,7 +532,8 @@ agencyRouter.get('/purchases', ensureAgencyActive, (req, res) => {
       ...purchase,
       project: findProject(projects, purchase.projectId),
       client: findClient(clients, purchase.clientId),
-      phoneDisplay: formatPhoneForPanel(purchase.whatsappFromPhone, purchase.whatsappFromLast4)
+      phoneDisplay: formatPhoneForPanel(purchase.whatsappFromPhone, purchase.whatsappFromLast4, agencyCapabilities(req)),
+      whatsappFromPhone: agencyCapabilities(req).canViewFullPhones ? normalizePhone(purchase.whatsappFromPhone || '') : ''
     }));
 
   res.json({ range, purchases });

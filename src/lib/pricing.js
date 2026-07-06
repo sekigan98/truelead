@@ -2,52 +2,80 @@ export const PLAN_DEFINITIONS = [
   {
     id: 'starter',
     name: 'Starter',
-    title: 'Trial automático',
+    title: 'Para probar medición real',
     usdMonthly: 19,
     leadsMonthly: null,
-    clientsLimit: 3,
-    projectsLimit: 5,
+    clientsLimit: 1,
+    projectsLimit: 1,
     whatsappLimit: 1,
+    featured: false,
+    capabilities: {
+      phoneVisibility: 'masked',
+      canViewFullPhones: false,
+      canExportLeads: false,
+      canUseMetaCapi: true,
+      canUsePurchases: true,
+      exportLabel: 'Exportación disponible desde Agency'
+    },
     features: [
-      '3 clientes',
-      '5 proyectos',
+      '1 cliente',
+      '1 proyecto / landing',
       '1 WhatsApp conectado',
-      'Leads reales automáticos',
-      'Reportes básicos'
+      'Teléfonos enmascarados: solo últimos 4 dígitos',
+      'Sin exportación CSV/XLSX',
+      'Leads reales y Meta CAPI'
     ]
   },
   {
     id: 'pro',
     name: 'Pro',
-    title: 'Agencias en crecimiento',
+    title: 'Para agencias en crecimiento',
     usdMonthly: 49,
     leadsMonthly: null,
     clientsLimit: 10,
     projectsLimit: 30,
     whatsappLimit: 5,
     featured: true,
+    capabilities: {
+      phoneVisibility: 'full',
+      canViewFullPhones: true,
+      canExportLeads: false,
+      canUseMetaCapi: true,
+      canUsePurchases: true,
+      exportLabel: 'Exportación CSV/XLSX disponible en Agency'
+    },
     features: [
       '10 clientes',
-      '30 proyectos',
-      'Hasta 5 WhatsApps',
-      'Tracking automático de leads',
-      'Meta Conversions API'
+      '30 proyectos / landings',
+      'Hasta 5 WhatsApps conectados',
+      'Teléfonos completos visibles en el panel',
+      'Meta Conversions API',
+      'Sin descarga CSV/XLSX'
     ]
   },
   {
     id: 'agency',
     name: 'Agency',
-    title: 'Escala y multi-cliente',
+    title: 'Escala, bases y multi-cliente',
     usdMonthly: 99,
     leadsMonthly: null,
     clientsLimit: 50,
     projectsLimit: 150,
     whatsappLimit: 20,
+    capabilities: {
+      phoneVisibility: 'full',
+      canViewFullPhones: true,
+      canExportLeads: true,
+      canUseMetaCapi: true,
+      canUsePurchases: true,
+      exportLabel: 'Exportación CSV/XLSX incluida'
+    },
     features: [
       '50 clientes',
-      '150 proyectos',
-      'Hasta 20 WhatsApps',
-      'Panel administrador avanzado',
+      '150 proyectos / landings',
+      'Hasta 20 WhatsApps conectados',
+      'Teléfonos completos visibles',
+      'Exportación CSV/XLSX por fechas',
       'Soporte prioritario'
     ]
   },
@@ -60,15 +88,29 @@ export const PLAN_DEFINITIONS = [
     clientsLimit: null,
     projectsLimit: null,
     whatsappLimit: null,
+    capabilities: {
+      phoneVisibility: 'full',
+      canViewFullPhones: true,
+      canExportLeads: true,
+      canUseMetaCapi: true,
+      canUsePurchases: true,
+      exportLabel: 'Exportación avanzada incluida'
+    },
     features: [
       'Clientes ilimitados',
-      'Múltiples agencias/equipos',
+      'Proyectos ilimitados',
+      'WhatsApps según operación',
+      'Exportación avanzada',
       'Onboarding personalizado',
-      'Soporte dedicado',
-      'Condiciones comerciales a medida'
+      'Soporte dedicado'
     ]
   }
 ];
+
+const PLAN_ALIASES = {
+  supreme: 'enterprise',
+  premium: 'agency'
+};
 
 export function getUsdArsRate() {
   const raw = Number(process.env.TRUELEAD_USD_ARS_RATE || process.env.USD_ARS_RATE || 1200);
@@ -135,5 +177,25 @@ export function getPricingForRequest(req) {
 }
 
 export function getPlanById(id) {
-  return PLAN_DEFINITIONS.find((plan) => plan.id === id) || PLAN_DEFINITIONS[0];
+  const normalized = String(id || 'starter').toLowerCase();
+  const target = PLAN_ALIASES[normalized] || normalized;
+  return PLAN_DEFINITIONS.find((plan) => plan.id === target) || PLAN_DEFINITIONS[0];
+}
+
+export function getPlanCapabilities(id) {
+  const plan = getPlanById(id);
+  return {
+    phoneVisibility: 'masked',
+    canViewFullPhones: false,
+    canExportLeads: false,
+    canUseMetaCapi: false,
+    canUsePurchases: true,
+    exportLabel: 'Exportación disponible desde Agency',
+    ...(plan.capabilities || {})
+  };
+}
+
+export function isWithinPlanLimit(currentCount, limit) {
+  if (limit == null) return true;
+  return Number(currentCount || 0) < Number(limit);
 }

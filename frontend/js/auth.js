@@ -3,7 +3,29 @@ const loginForm = document.querySelector('[data-login-form]');
 const registerForm = document.querySelector('[data-register-form]');
 const messageBox = document.querySelector('[data-message]');
 
+async function redirectIfSessionIsActive(destination = 'client') {
+  const savedUser = TrueLeadAPI.user();
+  const token = TrueLeadAPI.token();
+  if (!savedUser || !token) return;
+
+  try {
+    const data = await TrueLeadAPI.get('/api/auth/me');
+    const activeUser = data.user || savedUser;
+    TrueLeadAPI.setSession(token, activeUser);
+
+    if (destination === 'admin') {
+      location.href = activeUser.role === 'admin' ? 'admin.html' : 'app.html';
+    } else {
+      location.href = activeUser.role === 'admin' ? 'admin.html' : 'app.html';
+    }
+  } catch (error) {
+    TrueLeadAPI.clearSession();
+  }
+}
+
+
 if (loginForm) {
+  redirectIfSessionIsActive(loginForm.dataset.loginDestination || 'client');
   loginForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     const form = new FormData(loginForm);

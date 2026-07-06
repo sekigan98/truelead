@@ -17,6 +17,28 @@ function resolveTrueLeadApiBase() {
 
 const API_BASE = resolveTrueLeadApiBase();
 
+
+function trueLeadCookieDomain() {
+  const host = window.location.hostname || '';
+  return host === 'truelead.com.ar' || host.endsWith('.truelead.com.ar')
+    ? '; domain=.truelead.com.ar'
+    : '';
+}
+
+function setTrueLeadCookie(name, value, days = 30) {
+  const maxAge = days * 24 * 60 * 60;
+  document.cookie = `${name}=${encodeURIComponent(value || '')}; path=/; max-age=${maxAge}; SameSite=Lax${trueLeadCookieDomain()}`;
+}
+
+function clearTrueLeadCookie(name) {
+  document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax${trueLeadCookieDomain()}`;
+}
+
+function getTrueLeadCookie(name) {
+  const prefix = `${name}=`;
+  return document.cookie.split(';').map(item => item.trim()).find(item => item.startsWith(prefix))?.slice(prefix.length) || '';
+}
+
 const TrueLeadAPI = {
   apiBase: API_BASE,
   token() {
@@ -28,10 +50,23 @@ const TrueLeadAPI = {
   setSession(token, user) {
     localStorage.setItem('tl_token', token);
     localStorage.setItem('tl_user', JSON.stringify(user));
+    setTrueLeadCookie('tl_logged_in', '1');
+    setTrueLeadCookie('tl_role', user?.role || 'agency');
+    setTrueLeadCookie('tl_name', user?.name || 'TrueLead');
   },
   clearSession() {
     localStorage.removeItem('tl_token');
     localStorage.removeItem('tl_user');
+    clearTrueLeadCookie('tl_logged_in');
+    clearTrueLeadCookie('tl_role');
+    clearTrueLeadCookie('tl_name');
+  },
+  sessionHint() {
+    return {
+      loggedIn: getTrueLeadCookie('tl_logged_in') === '1',
+      role: decodeURIComponent(getTrueLeadCookie('tl_role') || 'agency'),
+      name: decodeURIComponent(getTrueLeadCookie('tl_name') || '')
+    };
   },
   buildUrl(path) {
     const normalizedPath = String(path || '').startsWith('/') ? path : `/${path}`;

@@ -285,6 +285,11 @@ export async function registerPaymentProof({
   if (prelead) {
     prelead.purchaseStatus = 'proof_received';
     prelead.paymentProofReceivedAt = prelead.paymentProofReceivedAt || nowIso();
+    prelead.whatsappFromLast4 = prelead.whatsappFromLast4 || phoneLast4(normalizedPhone);
+    prelead.whatsappFromHash = prelead.whatsappFromHash || phoneHash || '';
+    prelead.whatsappFromPhone = prelead.whatsappFromPhone || normalizedPhone || '';
+    prelead.phone = prelead.phone || normalizedPhone || '';
+    prelead.whatsappFrom = prelead.whatsappFrom || normalizedPhone || '';
     prelead.updatedAt = nowIso();
   }
 

@@ -312,3 +312,114 @@ th { color: #bdd0f2; }
 .qr-large.hidden, .qr.hidden {
   display: none;
 }
+
+/* Ajustes premium/responsive TrueLead */
+.session-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 9px 12px;
+  border-radius: 999px;
+  color: #dce9ff;
+  background: rgba(46,124,255,.12);
+  border: 1px solid rgba(46,124,255,.20);
+  font-size: .84rem;
+  font-weight: 800;
+}
+
+.btn.is-disabled,
+button:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.notice.subtle {
+  background: rgba(255,255,255,.035);
+  border-color: rgba(255,255,255,.08);
+  color: #c9d8f7;
+}
+
+.mock-chart::before,
+.mock-chart::after {
+  z-index: 1;
+}
+
+.mock-chart::before {
+  width: 70%;
+  opacity: .75;
+}
+
+.mock-chart::after {
+  width: 70%;
+}
+
+.qr-mini {
+  z-index: 3;
+  right: 14px;
+  bottom: 20px;
+  background: rgba(10,18,33,.96);
+  backdrop-filter: blur(10px);
+  overflow: hidden;
+}
+
+.panel-head,
+.actions {
+  min-width: 0;
+}
+
+.table-wrap {
+  border-radius: 16px;
+}
+
+.app-shell .metric,
+.app-shell .panel,
+.app-shell .client-card {
+  overflow: hidden;
+}
+
+@media (max-width: 1180px) {
+  .app-shell { grid-template-columns: 240px minmax(0, 1fr); }
+  .content-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 900px) {
+  .app-shell { padding: 12px; gap: 12px; }
+  .sidebar { border-radius: 18px; }
+  .side-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .side-nav button, .side-nav a { justify-content: center; text-align: center; padding: 12px 10px; }
+  .sidebar-bottom { margin-top: 0; }
+  .panel-head { align-items: flex-start; flex-direction: column; }
+  .modal-card { max-height: calc(100vh - 28px); overflow: auto; }
+}
+
+@media (max-width: 720px) {
+  .container { width: min(100% - 24px, 1220px); }
+  .hero h1 { font-size: clamp(2.55rem, 12vw, 3.4rem); }
+  .hero p { font-size: 1rem; }
+  .mock-metric strong, .metric strong { font-size: 1.65rem; }
+  .mock-chart { height: 220px; }
+  .mock-chart::before, .mock-chart::after { width: 58%; }
+  .qr-mini { position: absolute; right: 12px; bottom: 14px; width: 148px; padding: 12px; }
+  .qr-mini .qr { width: 92px; height: 92px; }
+  .compare strong { font-size: 1.7rem; }
+  .app-top { gap: 12px; }
+  .app-top h1 { font-size: 1.9rem; }
+  .panel, .auth-card { padding: 18px; }
+  .metrics { grid-template-columns: 1fr 1fr; gap: 10px; }
+  th, td { padding: 11px 10px; }
+  table { min-width: 760px; }
+}
+
+@media (max-width: 480px) {
+  .header-inner { gap: 12px; }
+  .nav { width: 100%; justify-content: space-between; font-size: .88rem; }
+  .actions { width: 100%; }
+  .actions .btn { flex: 1; }
+  .hero-actions .btn { width: 100%; }
+  .metrics { grid-template-columns: 1fr; }
+  .side-nav { grid-template-columns: 1fr; }
+  .modal-actions .btn { width: 100%; }
+  .pricing, .grid-3, .grid-2 { gap: 12px; }
+}
