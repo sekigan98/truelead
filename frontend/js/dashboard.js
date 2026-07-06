@@ -64,6 +64,17 @@ function sessionLabel(session) {
   return `${client} · ${name}${number}`;
 }
 
+function leadPhone(lead) {
+  return lead.phoneDisplay || lead.whatsappFromPhone || lead.phone || (lead.whatsappFromLast4 ? `••••${lead.whatsappFromLast4}` : '-');
+}
+
+function exportFileNameFromResponse(response, fallback) {
+  const disposition = response.headers.get('Content-Disposition') || '';
+  const match = disposition.match(/filename="?([^";]+)"?/i);
+  return match?.[1] || fallback;
+}
+
+
 function escapeHtml(value = '') {
   return String(value ?? '')
     .replaceAll('&', '&amp;')
@@ -116,12 +127,12 @@ function leadRow(lead) {
   const purchaseRate = lead.purchaseRate ?? 0;
   return `
     <tr>
-      <td><strong>${lead.code}</strong></td>
-      <td>${lead.client || '-'}</td>
-      <td>${lead.project || '-'}</td>
-      <td>${lead.whatsappFromLast4 ? `••••${lead.whatsappFromLast4}` : '-'}</td>
-      <td><span class="tag ${s}">${lead.status || '-'}</span></td>
-      <td><span class="tag ${m}">${lead.metaStatus || '-'}</span></td>
+      <td><strong>${escapeHtml(lead.code)}</strong></td>
+      <td><strong>${escapeHtml(leadPhone(lead))}</strong></td>
+      <td>${escapeHtml(lead.client || '-')}</td>
+      <td>${escapeHtml(lead.project || '-')}</td>
+      <td><span class="tag ${s}">${escapeHtml(lead.status || '-')}</span></td>
+      <td><span class="tag ${m}">${escapeHtml(lead.metaStatus || '-')}</span></td>
       <td>${lead.incomingMessages ?? lead.incomingMessageCount ?? 0}</td>
       <td>${lead.paymentProofs ?? 0}</td>
       <td>${lead.purchasesConfirmed ?? 0}</td>
@@ -169,16 +180,17 @@ function renderLeads() {
   document.querySelector('[data-recent-leads]').innerHTML = recent.length
     ? recent.slice(0, 8).map((lead) => `
       <tr>
-        <td><strong>${lead.code}</strong></td>
-        <td>${lead.client || '-'}</td>
-        <td>${lead.project || '-'}</td>
-        <td><span class="tag ${TLUtils.statusClass(lead.status)}">${lead.status}</span></td>
-        <td><span class="tag ${TLUtils.statusClass(lead.metaStatus)}">${lead.metaStatus}</span></td>
+        <td><strong>${escapeHtml(lead.code)}</strong></td>
+        <td><strong>${escapeHtml(leadPhone(lead))}</strong></td>
+        <td>${escapeHtml(lead.client || '-')}</td>
+        <td>${escapeHtml(lead.project || '-')}</td>
+        <td><span class="tag ${TLUtils.statusClass(lead.status)}">${escapeHtml(lead.status || '-')}</span></td>
+        <td><span class="tag ${TLUtils.statusClass(lead.metaStatus)}">${escapeHtml(lead.metaStatus || '-')}</span></td>
         <td>${lead.incomingMessages ?? 0}</td>
         <td>${lead.purchasesConfirmed ?? 0}</td>
         <td>${TLUtils.formatDate(lead.confirmedAt || lead.createdAt)}</td>
       </tr>`).join('')
-    : '<tr><td colspan="8">Todavía no hay leads.</td></tr>';
+    : '<tr><td colspan="9">Todavía no hay leads.</td></tr>';
 
   document.querySelector('[data-leads-table]').innerHTML = state.leads.length
     ? state.leads.map(leadRow).join('')
@@ -304,7 +316,7 @@ function purchaseRow(purchase) {
       <td>${purchase.project || '-'}</td>
       <td>${purchase.proofType || purchase.mimeType || '-'}</td>
       <td><span class="tag ${TLUtils.statusClass(status)}">${status}</span></td>
-      <td>••••${purchase.whatsappFromLast4 || '-'}</td>
+      <td><strong>${escapeHtml(purchase.phoneDisplay || (purchase.whatsappFromLast4 ? `••••${purchase.whatsappFromLast4}` : '-'))}</strong></td>
       <td>${TLUtils.formatDate(purchase.receivedAt || purchase.createdAt)}</td>
       <td>
         <div class="actions">
@@ -447,6 +459,39 @@ async function loadAll() {
     if (String(error.message).includes('No autenticado')) location.href = 'login.html';
   }
 }
+
+let liveRefreshRunning = false;
+async function refreshLiveData() {
+  if (liveRefreshRunning) return;
+  if (document.hidden) return;
+  if (document.querySelector('.modal-backdrop.open')) return;
+
+  liveRefreshRunning = true;
+  const query = rangeQuery();
+  try {
+    const [dashboard, leads, purchases, whatsapp] = await Promise.all([
+      TrueLeadAPI.get(`/api/agency/dashboard?${query}`),
+      TrueLeadAPI.get(`/api/agency/preleads?${query}`),
+      TrueLeadAPI.get(`/api/agency/purchases?${query}`),
+      TrueLeadAPI.get('/api/whatsapp/sessions')
+    ]);
+    state.dashboard = dashboard;
+    state.leads = leads.leads || [];
+    state.purchases = purchases.purchases || [];
+    state.whatsappSessions = whatsapp.sessions || [];
+    state.whatsapp = chooseActiveWhatsapp();
+    renderMetrics();
+    renderBilling();
+    renderLeads();
+    renderPurchases();
+    renderWhatsapp();
+  } catch (error) {
+    if (String(error.message).includes('No autenticado')) location.href = 'login.html';
+  } finally {
+    liveRefreshRunning = false;
+  }
+}
+
 
 async function updatePurchase(id, status) {
   const notes = status === 'purchase_confirmed'
@@ -670,6 +715,51 @@ async function disconnectSession(sessionId) {
   }
 }
 
+
+async function downloadLeadExport(format) {
+  const form = document.querySelector('[data-export-form]');
+  const mode = form?.elements?.mode?.value || 'full';
+  const params = new URLSearchParams();
+  params.set('range', state.range.range || 'month');
+  if (state.range.range === 'custom') {
+    if (state.range.from) params.set('from', state.range.from);
+    if (state.range.to) params.set('to', state.range.to);
+  }
+  params.set('mode', mode);
+  params.set('format', format);
+
+  try {
+    const response = await fetch(TrueLeadAPI.buildUrl(`/api/agency/exports/leads?${params.toString()}`), {
+      headers: {
+        Authorization: `Bearer ${TrueLeadAPI.token()}`
+      }
+    });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || `Error ${response.status}`);
+    }
+
+    const blob = await response.blob();
+    const filename = exportFileNameFromResponse(response, `truelead_export.${format}`);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    TLUtils.showMessage(messageBox, `Exportación ${format.toUpperCase()} lista.`, 'success');
+  } catch (error) {
+    TLUtils.showMessage(messageBox, error.message, 'error');
+  }
+}
+
+document.querySelectorAll('[data-export-format]').forEach(button => {
+  button.addEventListener('click', () => downloadLeadExport(button.dataset.exportFormat || 'csv'));
+});
+
 document.querySelector('[data-open-wa]')?.addEventListener('click', () => setTab('whatsapp'));
 
 const rangeSelect = document.querySelector('[data-range-filter]');
@@ -692,11 +782,7 @@ updateRangeVisibility();
 
 loadAll();
 
-setInterval(async () => {
-  try {
-    const whatsapp = await TrueLeadAPI.get('/api/whatsapp/sessions');
-    state.whatsappSessions = whatsapp.sessions || [];
-    state.whatsapp = chooseActiveWhatsapp();
-    renderWhatsapp();
-  } catch {}
-}, 5000);
+setInterval(refreshLiveData, 3000);
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) refreshLiveData();
+});

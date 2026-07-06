@@ -112,6 +112,7 @@
                 <thead>
                   <tr>
                     <th>Código</th>
+                    <th>Teléfono</th>
                     <th>Cliente</th>
                     <th>Proyecto</th>
                     <th>Estado</th>
@@ -122,7 +123,7 @@
                   </tr>
                 </thead>
                 <tbody data-recent-leads>
-                  <tr><td colspan="8">Cargando...</td></tr>
+                  <tr><td colspan="9">Cargando...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -189,9 +190,9 @@
                 <thead>
                   <tr>
                     <th>Código</th>
+                    <th>Teléfono</th>
                     <th>Cliente</th>
                     <th>Proyecto</th>
-                    <th>Celular</th>
                     <th>Estado</th>
                     <th>Meta</th>
                     <th>Mensajes</th>
@@ -206,6 +207,26 @@
             </div>
           </div>
           <aside class="panel">
+            <h2>Exportar base</h2>
+            <p class="muted">Usa el rango de fechas seleccionado arriba. Ideal para descargar números y armar base de datos.</p>
+            <form class="form" data-export-form>
+              <label>
+                <span>Qué exportar</span>
+                <select name="mode">
+                  <option value="full">Leads completos</option>
+                  <option value="numbers">Solo números confirmados</option>
+                  <option value="confirmed">Solo leads reales</option>
+                  <option value="buyers">Solo compradores validados</option>
+                </select>
+              </label>
+              <div class="actions">
+                <button class="btn btn-secondary btn-small" type="button" data-export-format="csv">Descargar CSV</button>
+                <button class="btn btn-primary btn-small" type="button" data-export-format="xlsx">Descargar XLSX</button>
+              </div>
+            </form>
+
+            <hr style="border:0;border-top:1px solid rgba(255,255,255,.10);margin:22px 0" />
+
             <h2>Corrección manual</h2>
             <p class="muted">La detección es automática por WhatsApp. Esta herramienta queda solo para corregir casos donde el cliente envió el código por otro medio.</p>
             <form class="form" data-confirm-form>
@@ -236,7 +257,7 @@
             <div class="panel-head">
               <div>
                 <h2>Comprobantes y compras</h2>
-                <p class="muted">TrueLead registra cuando un lead envía una imagen, PDF, documento, audio o archivo por WhatsApp. La compra se valida manualmente desde acá.</p>
+                <p class="muted">TrueLead registra comprobantes cuando un lead envía una foto, PDF o documento por WhatsApp. Stickers y GIFs no cuentan como comprobante. La compra se valida manualmente desde acá.</p>
               </div>
             </div>
             <div class="table-wrap">
@@ -261,7 +282,7 @@
           </div>
           <aside class="panel">
             <h2>Cómo funciona</h2>
-            <p class="muted">Cuando entra un archivo por WhatsApp, TrueLead lo marca como comprobante recibido. No descarga ni guarda el archivo en esta versión; solo registra el evento para que puedas validar la compra.</p>
+            <p class="muted">Cuando entra una foto, PDF o documento por WhatsApp, TrueLead lo marca como comprobante recibido. Stickers y GIFs quedan como mensajes, pero no como comprobantes. No descarga ni guarda el archivo en esta versión; solo registra el evento para validar la compra.</p>
             <div class="notice">
               Recomendado: validar manualmente el comprobante antes de marcarlo como compra confirmada.
             </div>

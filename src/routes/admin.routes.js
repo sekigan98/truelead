@@ -49,12 +49,16 @@ adminRouter.get('/agencies', (req, res) => {
     const payments = db.data.payments.filter((p) => p.agencyId === agency.id);
     const projects = db.data.projects.filter((p) => p.agencyId === agency.id);
     const leads = db.data.preleads.filter((l) => l.agencyId === agency.id);
+    const messages = db.data.whatsappMessages.filter((m) => m.agencyId === agency.id);
+    const purchases = db.data.purchases.filter((purchase) => purchase.agencyId === agency.id);
     return {
       ...agency,
       users,
       payments,
       projectsCount: projects.length,
-      leadsCount: leads.length
+      leadsCount: leads.length,
+      messagesCount: messages.length,
+      purchasesCount: purchases.length
     };
   });
   res.json({ agencies });
@@ -188,6 +192,35 @@ adminRouter.patch('/agencies/:id/plan', async (req, res) => {
   });
 
   res.json({ agency: updated, plan });
+});
+
+
+adminRouter.delete('/agencies/:id/history', async (req, res) => {
+  const agency = db.data.agencies.find((a) => a.id === req.params.id);
+  if (!agency) return res.status(404).json({ error: 'Agencia no encontrada.' });
+
+  const counts = {
+    preleads: db.data.preleads.filter((item) => item.agencyId === agency.id).length,
+    whatsappMessages: db.data.whatsappMessages.filter((item) => item.agencyId === agency.id).length,
+    purchases: db.data.purchases.filter((item) => item.agencyId === agency.id).length,
+    events: db.data.events.filter((item) => item.agencyId === agency.id).length
+  };
+
+  db.data.preleads = db.data.preleads.filter((item) => item.agencyId !== agency.id);
+  db.data.whatsappMessages = db.data.whatsappMessages.filter((item) => item.agencyId !== agency.id);
+  db.data.purchases = db.data.purchases.filter((item) => item.agencyId !== agency.id);
+  db.data.events = db.data.events.filter((item) => item.agencyId !== agency.id);
+
+  db.data.events.push({
+    id: `ev_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+    agencyId: agency.id,
+    type: 'history_deleted',
+    message: `Historial eliminado para ${agency.name}. Leads: ${counts.preleads}, mensajes: ${counts.whatsappMessages}, comprobantes: ${counts.purchases}.`,
+    createdAt: nowIso()
+  });
+
+  await db.save();
+  res.json({ ok: true, agencyId: agency.id, removed: counts });
 });
 
 adminRouter.get('/users', (req, res) => {

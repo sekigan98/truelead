@@ -30,6 +30,24 @@ function pushEvent({ agencyId, projectId, type, message }) {
   });
 }
 
+function isPaymentProofMedia({ messageType = '', mimeType = '', fileName = '' }) {
+  const type = String(messageType || '').toLowerCase();
+  const mime = String(mimeType || '').toLowerCase();
+  const name = String(fileName || '').toLowerCase();
+
+  // Stickers y GIFs son interacción, no comprobantes.
+  if (type === 'sticker') return false;
+  if (type === 'gif' || mime === 'image/gif' || name.endsWith('.gif')) return false;
+  if (mime === 'image/webp' || name.endsWith('.webp')) return false;
+
+  // Comprobante válido: foto real o documento/archivo tipo PDF/imagen/documento.
+  if (type === 'image') return true;
+  if (type === 'document') return true;
+
+  return false;
+}
+
+
 export async function confirmPreleadByCode({
   code,
   phone = '',
@@ -53,7 +71,9 @@ export async function confirmPreleadByCode({
   prelead.confirmedAt = prelead.confirmedAt || nowIso();
   prelead.whatsappFromLast4 = phoneLast4(normalizedPhone);
   prelead.whatsappFromHash = phoneHash || prelead.whatsappFromHash || '';
-  prelead.whatsappFrom = normalizedPhone ? `hash:${phoneLast4(normalizedPhone)}` : prelead.whatsappFrom || '';
+  prelead.whatsappFromPhone = normalizedPhone || prelead.whatsappFromPhone || '';
+  prelead.phone = normalizedPhone || prelead.phone || '';
+  prelead.whatsappFrom = normalizedPhone || prelead.whatsappFrom || '';
   prelead.confirmationSource = source;
   prelead.lastMessagePreview = cleanString(messageText, 180);
   prelead.incomingMessageCount = Number(prelead.incomingMessageCount || 0) + 1;
@@ -131,6 +151,7 @@ export async function registerIncomingWhatsAppMessage({
     externalMessageId: cleanString(messageId, 200),
     fromHash: phoneHash,
     fromLast4: phoneLast4(normalizedPhone),
+    fromPhone: normalizedPhone,
     messageType,
     hasMedia,
     mimeType: cleanString(mimeType, 160),
@@ -158,11 +179,17 @@ export async function registerIncomingWhatsAppMessage({
   } else if (prelead) {
     prelead.incomingMessageCount = Number(prelead.incomingMessageCount || 0) + 1;
     prelead.lastMessagePreview = cleanString(text, 180) || prelead.lastMessagePreview;
+    prelead.whatsappFromLast4 = prelead.whatsappFromLast4 || phoneLast4(normalizedPhone);
+    prelead.whatsappFromHash = prelead.whatsappFromHash || phoneHash || '';
+    prelead.whatsappFromPhone = prelead.whatsappFromPhone || normalizedPhone || '';
+    prelead.phone = prelead.phone || normalizedPhone || '';
+    prelead.whatsappFrom = prelead.whatsappFrom || normalizedPhone || '';
     prelead.updatedAt = nowIso();
   }
 
   let purchase = null;
-  if (hasMedia) {
+  const countsAsPaymentProof = hasMedia && isPaymentProofMedia({ messageType, mimeType, fileName });
+  if (countsAsPaymentProof) {
     purchase = await registerPaymentProof({
       agencyId,
       clientId,
@@ -186,7 +213,7 @@ export async function registerIncomingWhatsAppMessage({
     agencyId,
     projectId: prelead?.projectId || null,
     type: 'incoming_message',
-    message: `${messageType}${code ? ` con código ${code}` : ''}${hasMedia ? ' con archivo' : ''}.`
+    message: `${messageType}${code ? ` con código ${code}` : ''}${countsAsPaymentProof ? ' con comprobante' : (hasMedia ? ' con archivo ignorado como comprobante' : '')}.`
   });
 
   await db.save();
@@ -239,6 +266,7 @@ export async function registerPaymentProof({
     code: prelead?.code || code || '',
     whatsappFromHash: phoneHash,
     whatsappFromLast4: phoneLast4(normalizedPhone),
+    whatsappFromPhone: normalizedPhone,
     messageRecordId,
     externalMessageId: cleanString(messageId, 200),
     proofType: messageType,

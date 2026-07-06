@@ -50,7 +50,10 @@ function renderAgencies() {
       <td>${a.plan || '-'}</td>
       <td>${(a.users || []).length}</td>
       <td>${a.projectsCount || 0}</td>
-      <td>${a.leadsCount || 0}</td>
+      <td>
+        <strong>${a.leadsCount || 0}</strong><br>
+        <small>${a.messagesCount || 0} mensajes · ${a.purchasesCount || 0} comprob.</small>
+      </td>
       <td>${TLUtils.formatDate(a.expiresAt)}</td>
       <td>
         <div class="actions">
@@ -58,6 +61,7 @@ function renderAgencies() {
           <button class="btn btn-secondary btn-small" data-change-plan="${a.id}">Plan</button>
           <button class="btn btn-secondary btn-small" data-payment="${a.id}">Pago</button>
           <button class="btn btn-danger btn-small" data-suspend="${a.id}">Suspender</button>
+          <button class="btn btn-danger btn-small" data-clear-history="${a.id}">Borrar historial</button>
         </div>
       </td>
     </tr>
@@ -67,6 +71,7 @@ function renderAgencies() {
   body.querySelectorAll('[data-suspend]').forEach(btn => btn.addEventListener('click', () => updateAgencyStatus(btn.dataset.suspend, 'suspended')));
   body.querySelectorAll('[data-payment]').forEach(btn => btn.addEventListener('click', () => createPayment(btn.dataset.payment)));
   body.querySelectorAll('[data-change-plan]').forEach(btn => btn.addEventListener('click', () => changePlan(btn.dataset.changePlan)));
+  body.querySelectorAll('[data-clear-history]').forEach(btn => btn.addEventListener('click', () => clearAgencyHistory(btn.dataset.clearHistory)));
 }
 
 function allPayments() {
@@ -160,6 +165,27 @@ async function changePlan(agencyId) {
       activate: true
     });
     TLUtils.showMessage(messageBox, `Plan actualizado a ${plan}.`, 'success');
+    await loadAdmin();
+  } catch (error) {
+    TLUtils.showMessage(messageBox, error.message, 'error');
+  }
+}
+
+
+async function clearAgencyHistory(agencyId) {
+  const agency = adminState.agencies.find(a => a.id === agencyId);
+  if (!agency) return;
+
+  const warning = `Vas a borrar historial de ${agency.name}: ${agency.leadsCount || 0} leads, ${agency.messagesCount || 0} mensajes y ${agency.purchasesCount || 0} comprobantes.\n\nNo elimina clientes, proyectos, usuarios, pagos ni WhatsApps vinculados.`;
+  if (!confirm(warning)) return;
+
+  const confirmation = prompt('Para confirmar escribí BORRAR:', '');
+  if (confirmation !== 'BORRAR') return;
+
+  try {
+    const result = await TrueLeadAPI.delete(`/api/admin/agencies/${agencyId}/history`);
+    const removed = result.removed || {};
+    TLUtils.showMessage(messageBox, `Historial eliminado. Leads: ${removed.preleads || 0}, mensajes: ${removed.whatsappMessages || 0}, comprobantes: ${removed.purchases || 0}.`, 'success');
     await loadAdmin();
   } catch (error) {
     TLUtils.showMessage(messageBox, error.message, 'error');

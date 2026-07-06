@@ -53,12 +53,13 @@ function getContentInfo(message = {}) {
   }
 
   if (content.videoMessage) {
+    const isGif = Boolean(content.videoMessage.gifPlayback);
     return {
       text: content.videoMessage.caption || '',
-      type: 'video',
+      type: isGif ? 'gif' : 'video',
       hasMedia: true,
       mimeType: content.videoMessage.mimetype || 'video/mp4',
-      fileName: ''
+      fileName: isGif ? 'whatsapp.gif' : ''
     };
   }
 

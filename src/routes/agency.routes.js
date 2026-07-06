@@ -1,4 +1,5 @@
 import express from 'express';
+import * as XLSX from 'xlsx';
 import { nanoid } from 'nanoid';
 import { db } from '../lib/db.js';
 import {
@@ -56,6 +57,29 @@ function findWhatsappSession(agencyId, sessionId) {
   ) || null;
 }
 
+function latestLeadPhone(lead) {
+  const direct = normalizePhone(lead.whatsappFromPhone || lead.phone || '');
+  if (direct) return direct;
+
+  const messages = db.data.whatsappMessages
+    .filter((m) => m.preleadId === lead.id || (lead.code && m.code === lead.code))
+    .sort((a, b) => String(b.receivedAt || b.createdAt).localeCompare(String(a.receivedAt || a.createdAt)));
+  const fromMessage = normalizePhone(messages.find((m) => m.fromPhone)?.fromPhone || '');
+  if (fromMessage) return fromMessage;
+
+  const purchases = db.data.purchases
+    .filter((purchase) => purchase.preleadId === lead.id || (lead.code && purchase.code === lead.code))
+    .sort((a, b) => String(b.receivedAt || b.createdAt).localeCompare(String(a.receivedAt || a.createdAt)));
+  const fromPurchase = normalizePhone(purchases.find((purchase) => purchase.whatsappFromPhone)?.whatsappFromPhone || '');
+  return fromPurchase || '';
+}
+
+function formatPhoneForPanel(phone, last4 = '') {
+  const normalized = normalizePhone(phone);
+  if (normalized) return normalized;
+  return last4 ? `••••${last4}` : '';
+}
+
 function enrichProjectWhatsapp(project) {
   const session = findWhatsappSession(project.agencyId, project.whatsappSessionId);
   const client = db.data.clients.find((c) => c.id === session?.clientId && c.agencyId === project.agencyId);
@@ -95,10 +119,14 @@ function leadStats(lead) {
 }
 
 function enrichLead(lead, clients, projects) {
+  const phone = latestLeadPhone(lead);
   return {
     ...lead,
     client: findClient(clients, lead.clientId),
     project: findProject(projects, lead.projectId),
+    whatsappFromPhone: phone,
+    phone,
+    phoneDisplay: formatPhoneForPanel(phone, lead.whatsappFromLast4),
     ...leadStats(lead)
   };
 }
@@ -142,6 +170,91 @@ function metricsFor({ aid, from, to }) {
     salesConversionRate,
     messageToSaleRate
   };
+}
+
+
+function exportDate(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? String(value) : date.toISOString();
+}
+
+function csvEscape(value) {
+  const str = String(value ?? '');
+  if (/[",\n\r;]/.test(str)) return `"${str.replaceAll('"', '""')}"`;
+  return str;
+}
+
+function buildLeadExportRows({ aid, from, to, mode = 'full' }) {
+  const clients = db.data.clients.filter((c) => c.agencyId === aid);
+  const projects = db.data.projects.filter((p) => p.agencyId === aid);
+  let leads = db.data.preleads
+    .filter((lead) => lead.agencyId === aid)
+    .filter((lead) => inRange(lead, from, to, ['createdAt', 'confirmedAt', 'updatedAt']))
+    .map((lead) => enrichLead(lead, clients, projects));
+
+  if (mode === 'confirmed' || mode === 'numbers') {
+    leads = leads.filter((lead) => ['confirmed', 'sent_to_meta', 'payment_proof_received'].includes(lead.status));
+  }
+  if (mode === 'buyers') {
+    leads = leads.filter((lead) => Number(lead.purchasesConfirmed || 0) > 0);
+  }
+
+  leads = leads.sort((a, b) => String(b.confirmedAt || b.createdAt).localeCompare(String(a.confirmedAt || a.createdAt)));
+
+  if (mode === 'numbers') {
+    return leads
+      .filter((lead) => lead.phone)
+      .map((lead) => ({
+        numero: lead.phone,
+        codigo: lead.code,
+        cliente: lead.client || '',
+        proyecto: lead.project || '',
+        estado: lead.status || '',
+        fecha: exportDate(lead.confirmedAt || lead.createdAt)
+      }));
+  }
+
+  return leads.map((lead) => ({
+    codigo: lead.code,
+    telefono: lead.phone || '',
+    cliente: lead.client || '',
+    proyecto: lead.project || '',
+    estado: lead.status || '',
+    meta: lead.metaStatus || '',
+    mensajes_entrantes: lead.incomingMessages ?? lead.incomingMessageCount ?? 0,
+    comprobantes: lead.paymentProofs ?? 0,
+    ventas_validadas: lead.purchasesConfirmed ?? 0,
+    porcentaje_compra: `${lead.purchaseRate ?? 0}%`,
+    origen_boton: lead.buttonSource || '',
+    landing: lead.landingUrl || '',
+    fecha_click: exportDate(lead.createdAt),
+    fecha_confirmacion: exportDate(lead.confirmedAt),
+    ultima_actividad: exportDate(lead.updatedAt)
+  }));
+}
+
+function sendRowsAsCsv(res, rows, filename) {
+  const headers = Object.keys(rows[0] || { numero: '', codigo: '', cliente: '', proyecto: '', fecha: '' });
+  const csv = [
+    headers.join(','),
+    ...rows.map((row) => headers.map((header) => csvEscape(row[header])).join(','))
+  ].join('\n');
+
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}.csv"`);
+  return res.send(`\uFEFF${csv}`);
+}
+
+function sendRowsAsXlsx(res, rows, filename) {
+  const worksheet = XLSX.utils.json_to_sheet(rows);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Leads');
+  const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}.xlsx"`);
+  return res.send(buffer);
 }
 
 agencyRouter.get('/dashboard', ensureAgencyActive, (req, res) => {
@@ -324,6 +437,22 @@ agencyRouter.delete('/projects/:id', ensureAgencyActive, async (req, res) => {
   res.json({ ok: true });
 });
 
+
+agencyRouter.get('/exports/leads', ensureAgencyActive, (req, res) => {
+  const aid = agencyId(req);
+  const range = parseDateRange(req.query);
+  const mode = cleanString(req.query.mode || 'full', 40);
+  const format = cleanString(req.query.format || 'csv', 20).toLowerCase();
+  const safeMode = ['full', 'numbers', 'confirmed', 'buyers'].includes(mode) ? mode : 'full';
+  const safeFormat = ['csv', 'xlsx'].includes(format) ? format : 'csv';
+  const rows = buildLeadExportRows({ aid, from: range.from, to: range.to, mode: safeMode });
+  const stamp = new Date().toISOString().slice(0, 10);
+  const filename = `truelead_${safeMode}_${range.range}_${stamp}`;
+
+  if (safeFormat === 'xlsx') return sendRowsAsXlsx(res, rows, filename);
+  return sendRowsAsCsv(res, rows, filename);
+});
+
 agencyRouter.get('/preleads', ensureAgencyActive, (req, res) => {
   const aid = agencyId(req);
   const range = parseDateRange(req.query);
@@ -350,7 +479,8 @@ agencyRouter.get('/purchases', ensureAgencyActive, (req, res) => {
     .map((purchase) => ({
       ...purchase,
       project: findProject(projects, purchase.projectId),
-      client: findClient(clients, purchase.clientId)
+      client: findClient(clients, purchase.clientId),
+      phoneDisplay: formatPhoneForPanel(purchase.whatsappFromPhone, purchase.whatsappFromLast4)
     }));
 
   res.json({ range, purchases });
