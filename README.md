@@ -266,3 +266,20 @@ Cuando el dominio esté listo, reemplazar por:
 ```env
 APP_URL=https://app.truelead.com.ar
 ```
+
+## Public domain + app domain
+
+If the public website is deployed on Netlify at `truelead.com.ar`, frontend requests now automatically use:
+
+```txt
+https://app.truelead.com.ar
+```
+
+This fixes registration/login from the public site. Make sure Render has:
+
+```env
+CORS_ORIGIN=https://app.truelead.com.ar,https://truelead.com.ar,https://www.truelead.com.ar
+APP_URL=https://app.truelead.com.ar
+```
+
+Netlify also includes `frontend/_redirects` as an extra proxy fallback for `/api/*`.

@@ -1,7 +1,24 @@
+function resolveTrueLeadApiBase() {
+  const explicit = window.TRUELEAD_API_BASE || localStorage.getItem('TRUELEAD_API_BASE') || '';
+  if (explicit) return explicit.replace(/\/$/, '');
 
-const API_BASE = window.TRUELEAD_API_BASE || localStorage.getItem('TRUELEAD_API_BASE') || '';
+  const host = window.location.hostname;
+  const publicHosts = new Set([
+    'truelead.com.ar',
+    'www.truelead.com.ar'
+  ]);
+
+  if (publicHosts.has(host)) {
+    return 'https://app.truelead.com.ar';
+  }
+
+  return '';
+}
+
+const API_BASE = resolveTrueLeadApiBase();
 
 const TrueLeadAPI = {
+  apiBase: API_BASE,
   token() {
     return localStorage.getItem('tl_token') || '';
   },
@@ -16,6 +33,10 @@ const TrueLeadAPI = {
     localStorage.removeItem('tl_token');
     localStorage.removeItem('tl_user');
   },
+  buildUrl(path) {
+    const normalizedPath = String(path || '').startsWith('/') ? path : `/${path}`;
+    return `${API_BASE}${normalizedPath}`;
+  },
   async request(path, options = {}) {
     const headers = {
       'Content-Type': 'application/json',
@@ -24,7 +45,7 @@ const TrueLeadAPI = {
     const token = this.token();
     if (token) headers.Authorization = `Bearer ${token}`;
 
-    const response = await fetch(`${API_BASE}${path}`, {
+    const response = await fetch(this.buildUrl(path), {
       ...options,
       headers,
       body: options.body && typeof options.body !== 'string'

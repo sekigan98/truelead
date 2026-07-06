@@ -1,0 +1,2 @@
+/api/*  https://app.truelead.com.ar/api/:splat  200
+/health https://app.truelead.com.ar/health 200
