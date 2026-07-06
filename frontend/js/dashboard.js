@@ -17,6 +17,7 @@ let state = {
   leads: [],
   purchases: [],
   whatsapp: null,
+  whatsappSessions: [],
   range: {
     range: 'month',
     from: '',
@@ -49,6 +50,18 @@ function rangeQuery() {
     if (state.range.to) params.set('to', state.range.to);
   }
   return params.toString();
+}
+
+function clientName(id) {
+  return state.clients.find(c => c.id === id)?.name || 'Sin cliente';
+}
+
+function sessionLabel(session) {
+  if (!session) return 'Sin WhatsApp';
+  const name = session.label || 'WhatsApp';
+  const client = session.client || clientName(session.clientId);
+  const number = session.number ? ` · ${session.number}` : '';
+  return `${client} · ${name}${number}`;
 }
 
 function renderMetrics() {
@@ -150,6 +163,20 @@ function renderLeads() {
     : '<tr><td colspan="11">Todavía no hay leads en este período.</td></tr>';
 }
 
+function renderClientSelects() {
+  const options = state.clients.length
+    ? state.clients.map(c => `<option value="${c.id}">${c.name}</option>`).join('')
+    : '<option value="">Primero creá un cliente</option>';
+
+  const clientSelect = document.querySelector('[data-client-select]');
+  if (clientSelect) clientSelect.innerHTML = options;
+
+  const waClientSelect = document.querySelector('[data-wa-client-select]');
+  if (waClientSelect) waClientSelect.innerHTML = options;
+
+  renderWhatsappSessionSelect();
+}
+
 function renderClients() {
   const wrap = document.querySelector('[data-clients-grid]');
   wrap.innerHTML = state.clients.length ? state.clients.map(c => `
@@ -161,13 +188,38 @@ function renderClients() {
     </article>
   `).join('') : '<p class="muted">No hay clientes todavía.</p>';
 
-  const select = document.querySelector('[data-client-select]');
-  select.innerHTML = state.clients.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  renderClientSelects();
+}
+
+function renderWhatsappSessionSelect() {
+  const select = document.querySelector('[data-whatsapp-session-select]');
+  if (!select) return;
+
+  const selectedClientId = document.querySelector('[data-client-select]')?.value || '';
+  const sessions = state.whatsappSessions.filter(session =>
+    !selectedClientId || !session.clientId || session.clientId === selectedClientId
+  );
+
+  select.innerHTML = sessions.length
+    ? sessions.map(session => `<option value="${session.id}">${sessionLabel(session)} · ${session.status}</option>`).join('')
+    : '<option value="">Primero vinculá un WhatsApp para este cliente</option>';
 }
 
 function sdkSnippet(project) {
   const api = location.origin;
-  return `<script src="${api}/sdk/truelead.js" data-project="${project.publicId}" data-api="${api}"><\/script>\n<a href="#" data-truelead-whatsapp>Enviar WhatsApp</a>`;
+  return `<a
+  href="#"
+  data-truelead-whatsapp
+  data-truelead-source="hero"
+  data-truelead-message="Hola, quiero recibir información. Mi código es: {{code}}">
+  Enviar WhatsApp
+</a>
+
+<script
+  src="${api}/sdk/truelead.js"
+  data-project="${project.publicId}"
+  data-api="${api}">
+<\/script>`;
 }
 
 function renderProjects() {
@@ -176,11 +228,11 @@ function renderProjects() {
     <article class="soft client-card">
       <h3>${p.name}</h3>
       <p>Public ID: <strong>${p.publicId}</strong></p>
-      <p>WhatsApp vinculado: ${p.whatsappLinkedNumber || p.whatsappNumber || 'Sin vincular'}</p>
+      <p>WhatsApp vinculado: ${p.whatsappLinkedLabel || 'Sin etiqueta'} ${p.whatsappLinkedNumber ? `· ${p.whatsappLinkedNumber}` : ''}</p>
       <p>Estado WhatsApp: <span class="tag ${TLUtils.statusClass(p.whatsappLinkedStatus)}">${p.whatsappLinkedStatus || 'disconnected'}</span></p>
       <p>Dominio: ${p.domain || '-'}</p>
       <span class="status ${p.status === 'active' ? 'active' : 'pending'}">${p.status}</span>
-      <textarea rows="5" readonly style="margin-top:12px">${sdkSnippet(p)}</textarea>
+      <textarea rows="10" readonly style="margin-top:12px">${sdkSnippet(p)}</textarea>
     </article>
   `).join('') : '<p class="muted">No hay proyectos todavía. Primero creá un cliente y vinculá WhatsApp.</p>';
 }
@@ -223,27 +275,37 @@ function renderPurchases() {
   });
 }
 
+function chooseActiveWhatsapp() {
+  return state.whatsappSessions.find(s => s.qrDataUrl) ||
+    state.whatsappSessions.find(s => s.status === 'connected') ||
+    state.whatsappSessions[0] ||
+    null;
+}
+
 function renderWhatsapp() {
-  const s = state.whatsapp || {};
-  const cls = s.status === 'connected' ? 'active' : 'pending';
+  const s = state.whatsapp || chooseActiveWhatsapp() || {};
+  const connectedCount = state.whatsappSessions.filter(item => item.status === 'connected').length;
+  const cls = s.status === 'connected' ? 'active' : (s.status === 'qr' ? 'pending' : 'pending');
 
   document.querySelectorAll('[data-wa-status], [data-wa-status-2]').forEach(el => {
     el.className = `status ${cls}`;
-    el.textContent = s.status || 'disconnected';
+    el.textContent = connectedCount
+      ? `${connectedCount} conectado${connectedCount === 1 ? '' : 's'}`
+      : (s.status || 'sin conectar');
   });
 
   const copy = s.status === 'connected'
-    ? `Conectado: ${s.number || 'número vinculado'}`
+    ? `Conectado: ${sessionLabel(s)}`
     : s.status === 'qr'
-      ? 'QR listo. Escanealo desde WhatsApp > Dispositivos vinculados.'
+      ? `QR listo para ${sessionLabel(s)}.`
       : s.status === 'connecting'
-        ? 'Conectando con WhatsApp...'
+        ? `Conectando ${sessionLabel(s)}...`
         : 'Todavía no hay WhatsApp conectado.';
 
   const copy1 = document.querySelector('[data-wa-copy]');
   const copy2 = document.querySelector('[data-wa-copy-2]');
   if (copy1) copy1.textContent = copy;
-  if (copy2) copy2.textContent = s.qr ? 'QR real generado. Escanealo con el teléfono del cliente.' : copy;
+  if (copy2) copy2.textContent = s.qrDataUrl ? 'QR real generado. Escanealo con el teléfono del cliente.' : copy;
 
   document.querySelectorAll('[data-wa-qr-img]').forEach((img) => {
     if (s.qrDataUrl) {
@@ -258,6 +320,43 @@ function renderWhatsapp() {
   document.querySelectorAll('[data-wa-qr-box]').forEach((box) => {
     box.classList.toggle('hidden', Boolean(s.qrDataUrl));
   });
+
+  renderWhatsappSessions();
+  renderWhatsappSessionSelect();
+}
+
+function renderWhatsappSessions() {
+  const grid = document.querySelector('[data-whatsapp-sessions-grid]');
+  if (!grid) return;
+
+  grid.innerHTML = state.whatsappSessions.length
+    ? state.whatsappSessions.map(session => `
+      <article class="soft client-card">
+        <div class="panel-head">
+          <div>
+            <h3>${session.label || 'WhatsApp'}</h3>
+            <p>${session.client || clientName(session.clientId)}</p>
+          </div>
+          <span class="tag ${TLUtils.statusClass(session.status)}">${session.status || 'disconnected'}</span>
+        </div>
+        <p>Número: ${session.number || 'Pendiente de vincular'}</p>
+        <p>Última actividad: ${TLUtils.formatDate(session.lastActivityAt || session.updatedAt)}</p>
+        ${session.lastError ? `<p class="muted">Error: ${session.lastError}</p>` : ''}
+        <div class="actions">
+          <button class="btn btn-primary btn-small" data-session-qr="${session.id}">Generar QR / Reconectar</button>
+          <button class="btn btn-danger btn-small" data-session-disconnect="${session.id}">Desconectar</button>
+        </div>
+      </article>
+    `).join('')
+    : '<p class="muted">Todavía no hay WhatsApps vinculados. Elegí un cliente y generá el primer QR.</p>';
+
+  grid.querySelectorAll('[data-session-qr]').forEach(button => {
+    button.addEventListener('click', () => requestQrForSession(button.dataset.sessionQr));
+  });
+
+  grid.querySelectorAll('[data-session-disconnect]').forEach(button => {
+    button.addEventListener('click', () => disconnectSession(button.dataset.sessionDisconnect));
+  });
 }
 
 async function loadAll() {
@@ -269,14 +368,15 @@ async function loadAll() {
       TrueLeadAPI.get('/api/agency/projects'),
       TrueLeadAPI.get(`/api/agency/preleads?${query}`),
       TrueLeadAPI.get(`/api/agency/purchases?${query}`),
-      TrueLeadAPI.get('/api/whatsapp/status')
+      TrueLeadAPI.get('/api/whatsapp/sessions')
     ]);
     state.dashboard = dashboard;
     state.clients = clients.clients || [];
     state.projects = projects.projects || [];
     state.leads = leads.leads || [];
     state.purchases = purchases.purchases || [];
-    state.whatsapp = whatsapp.session || {};
+    state.whatsappSessions = whatsapp.sessions || [];
+    state.whatsapp = chooseActiveWhatsapp();
     renderMetrics();
     renderBilling();
     renderLeads();
@@ -307,10 +407,13 @@ async function updatePurchase(id, status) {
 document.querySelectorAll('[data-open-modal]').forEach(btn => btn.addEventListener('click', () => {
   const modal = document.querySelector(`[data-modal="${btn.dataset.openModal}"]`);
   modal?.classList.add('open');
+  renderWhatsappSessionSelect();
 }));
 document.querySelectorAll('[data-close-modal]').forEach(btn => btn.addEventListener('click', () => {
   btn.closest('.modal-backdrop')?.classList.remove('open');
 }));
+
+document.querySelector('[data-client-select]')?.addEventListener('change', renderWhatsappSessionSelect);
 
 document.querySelector('[data-client-form]')?.addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -333,7 +436,7 @@ document.querySelector('[data-project-form]')?.addEventListener('submit', async 
     await TrueLeadAPI.post('/api/agency/projects', Object.fromEntries(form.entries()));
     event.target.reset();
     event.target.closest('.modal-backdrop')?.classList.remove('open');
-    TLUtils.showMessage(messageBox, 'Proyecto creado correctamente. Va a usar el WhatsApp vinculado por QR.', 'success');
+    TLUtils.showMessage(messageBox, 'Proyecto creado correctamente con WhatsApp vinculado.', 'success');
     await loadAll();
   } catch (error) {
     TLUtils.showMessage(messageBox, error.message, 'error');
@@ -358,34 +461,50 @@ document.querySelector('[data-confirm-form]')?.addEventListener('submit', async 
   }
 });
 
-document.querySelectorAll('[data-request-qr]').forEach((button) => {
-  button.addEventListener('click', async () => {
-    try {
-      const data = await TrueLeadAPI.post('/api/whatsapp/request-qr', {});
-      state.whatsapp = data.session;
-      renderWhatsapp();
-      TLUtils.showMessage(messageBox, data.message || 'QR solicitado.', 'success');
-      await loadAll();
-    } catch (error) {
-      TLUtils.showMessage(messageBox, error.message, 'error');
-    }
-  });
+document.querySelector('[data-whatsapp-form]')?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const form = new FormData(event.target);
+  const body = Object.fromEntries(form.entries());
+
+  try {
+    const data = await TrueLeadAPI.post('/api/whatsapp/request-qr', body);
+    state.whatsapp = data.session;
+    await loadAll();
+    state.whatsapp = data.session;
+    renderWhatsapp();
+    TLUtils.showMessage(messageBox, data.message || 'QR solicitado.', 'success');
+  } catch (error) {
+    TLUtils.showMessage(messageBox, error.message, 'error');
+  }
 });
 
-document.querySelector('[data-mark-connected]')?.addEventListener('click', async () => {
-  const number = prompt('Número conectado para demo:', '+54 11 0000 0000') || '+54 11 0000 0000';
-  const data = await TrueLeadAPI.post('/api/whatsapp/mark-connected', { number, device: 'Demo browser' });
-  state.whatsapp = data.session;
-  renderWhatsapp();
-  await loadAll();
-});
+async function requestQrForSession(sessionId) {
+  try {
+    const session = state.whatsappSessions.find(item => item.id === sessionId);
+    const data = await TrueLeadAPI.post('/api/whatsapp/request-qr', {
+      sessionId,
+      clientId: session?.clientId || '',
+      label: session?.label || 'WhatsApp'
+    });
+    state.whatsapp = data.session;
+    await loadAll();
+    state.whatsapp = data.session;
+    renderWhatsapp();
+    TLUtils.showMessage(messageBox, data.message || 'QR solicitado.', 'success');
+  } catch (error) {
+    TLUtils.showMessage(messageBox, error.message, 'error');
+  }
+}
 
-document.querySelector('[data-disconnect-wa]')?.addEventListener('click', async () => {
-  const data = await TrueLeadAPI.post('/api/whatsapp/disconnect', {});
-  state.whatsapp = data.session;
-  renderWhatsapp();
-  await loadAll();
-});
+async function disconnectSession(sessionId) {
+  try {
+    await TrueLeadAPI.post('/api/whatsapp/disconnect', { sessionId });
+    await loadAll();
+    TLUtils.showMessage(messageBox, 'WhatsApp desconectado.', 'success');
+  } catch (error) {
+    TLUtils.showMessage(messageBox, error.message, 'error');
+  }
+}
 
 document.querySelector('[data-open-wa]')?.addEventListener('click', () => setTab('whatsapp'));
 
@@ -411,8 +530,9 @@ loadAll();
 
 setInterval(async () => {
   try {
-    const whatsapp = await TrueLeadAPI.get('/api/whatsapp/status');
-    state.whatsapp = whatsapp.session || {};
+    const whatsapp = await TrueLeadAPI.get('/api/whatsapp/sessions');
+    state.whatsappSessions = whatsapp.sessions || [];
+    state.whatsapp = chooseActiveWhatsapp();
     renderWhatsapp();
   } catch {}
 }, 5000);

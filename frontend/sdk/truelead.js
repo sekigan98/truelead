@@ -3,6 +3,7 @@
   const currentScript = document.currentScript;
   const projectPublicId = currentScript?.dataset.project || '';
   const apiBase = currentScript?.dataset.api || new URL(currentScript.src).origin;
+  const defaultMessage = currentScript?.dataset.message || '';
   const buttons = document.querySelectorAll('[data-truelead-whatsapp]');
 
   function getCookie(name) {
@@ -32,7 +33,10 @@
     return out;
   }
 
-  async function createPrelead() {
+  async function createPrelead(button) {
+    const messageTemplate = button?.dataset.trueleadMessage || defaultMessage || '';
+    const buttonSource = button?.dataset.trueleadSource || button?.id || button?.textContent?.trim() || '';
+
     const response = await fetch(apiBase + '/api/preleads', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -40,6 +44,8 @@
         projectPublicId,
         landingUrl: location.href,
         visitorId: getVisitorId(),
+        buttonSource,
+        messageTemplate,
         fbp: getCookie('_fbp'),
         fbc: getCookie('_fbc'),
         utm: collectUtm()
@@ -58,16 +64,17 @@
   buttons.forEach((button) => {
     button.addEventListener('click', async (event) => {
       event.preventDefault();
+
       const originalText = button.textContent;
-      button.textContent = 'Abriendo WhatsApp...';
+      button.textContent = button.dataset.trueleadLoading || 'Abriendo WhatsApp...';
       button.setAttribute('aria-busy', 'true');
 
       try {
-        const prelead = await createPrelead();
+        const prelead = await createPrelead(button);
         if (prelead.whatsappHref) {
           window.location.href = prelead.whatsappHref;
         } else {
-          throw new Error('El proyecto no tiene WhatsApp configurado.');
+          throw new Error('El proyecto no tiene WhatsApp vinculado.');
         }
       } catch (error) {
         console.error('[TrueLead]', error);

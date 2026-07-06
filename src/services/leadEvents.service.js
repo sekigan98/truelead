@@ -79,13 +79,15 @@ export async function confirmPreleadByCode({
   return { ok: true, lead: prelead, project, meta: metaResult };
 }
 
-function findRecentLeadByPhone({ agencyId, phoneHash }) {
+function findRecentLeadByPhone({ agencyId, phoneHash, whatsappSessionId = '', clientId = '' }) {
   if (!phoneHash) return null;
 
   return [...db.data.preleads]
     .filter((lead) =>
       lead.agencyId === agencyId &&
       lead.whatsappFromHash === phoneHash &&
+      (!whatsappSessionId || !lead.whatsappSessionId || lead.whatsappSessionId === whatsappSessionId) &&
+      (!clientId || !lead.clientId || lead.clientId === clientId) &&
       ['confirmed', 'sent_to_meta', 'payment_proof_received', 'intent'].includes(lead.status)
     )
     .sort((a, b) => String(b.confirmedAt || b.updatedAt || b.createdAt).localeCompare(String(a.confirmedAt || a.updatedAt || a.createdAt)))[0] || null;
@@ -93,6 +95,8 @@ function findRecentLeadByPhone({ agencyId, phoneHash }) {
 
 export async function registerIncomingWhatsAppMessage({
   agencyId,
+  clientId = '',
+  whatsappSessionId = '',
   messageId = '',
   from = '',
   text = '',
@@ -108,7 +112,7 @@ export async function registerIncomingWhatsAppMessage({
   let prelead = code ? db.data.preleads.find((l) => l.code === code && l.agencyId === agencyId) : null;
 
   if (!prelead && phoneHash) {
-    prelead = findRecentLeadByPhone({ agencyId, phoneHash });
+    prelead = findRecentLeadByPhone({ agencyId, phoneHash, whatsappSessionId, clientId });
   }
 
   const detectedEvent = code
@@ -119,7 +123,8 @@ export async function registerIncomingWhatsAppMessage({
 
   const messageRecord = await db.insert('whatsappMessages', {
     agencyId,
-    clientId: prelead?.clientId || null,
+    whatsappSessionId: whatsappSessionId || prelead?.whatsappSessionId || '',
+    clientId: prelead?.clientId || clientId || null,
     projectId: prelead?.projectId || null,
     preleadId: prelead?.id || null,
     code: prelead?.code || code || '',
@@ -146,6 +151,7 @@ export async function registerIncomingWhatsAppMessage({
       messageText: text
     });
     prelead = leadResult.lead || prelead;
+    if (prelead && whatsappSessionId && !prelead.whatsappSessionId) prelead.whatsappSessionId = whatsappSessionId;
     messageRecord.preleadId = prelead?.id || messageRecord.preleadId;
     messageRecord.clientId = prelead?.clientId || messageRecord.clientId;
     messageRecord.projectId = prelead?.projectId || messageRecord.projectId;
@@ -159,6 +165,8 @@ export async function registerIncomingWhatsAppMessage({
   if (hasMedia) {
     purchase = await registerPaymentProof({
       agencyId,
+      clientId,
+      whatsappSessionId,
       phone: normalizedPhone,
       text,
       messageType,
@@ -196,6 +204,8 @@ export async function registerIncomingWhatsAppMessage({
 
 export async function registerPaymentProof({
   agencyId,
+  clientId = '',
+  whatsappSessionId = '',
   phone = '',
   text = '',
   messageType = 'document',
@@ -215,14 +225,15 @@ export async function registerPaymentProof({
   }
 
   if (!prelead && phoneHash) {
-    prelead = findRecentLeadByPhone({ agencyId, phoneHash });
+    prelead = findRecentLeadByPhone({ agencyId, phoneHash, whatsappSessionId, clientId });
   }
 
   const project = prelead ? db.data.projects.find((p) => p.id === prelead.projectId) : null;
 
   const purchase = await db.insert('purchases', {
     agencyId,
-    clientId: prelead?.clientId || null,
+    whatsappSessionId: whatsappSessionId || prelead?.whatsappSessionId || '',
+    clientId: prelead?.clientId || clientId || null,
     projectId: prelead?.projectId || null,
     preleadId: prelead?.id || null,
     code: prelead?.code || code || '',

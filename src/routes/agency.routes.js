@@ -48,6 +48,32 @@ function findProject(projects, id) {
   return projects.find((p) => p.id === id)?.name || 'Sin proyecto';
 }
 
+function findWhatsappSession(agencyId, sessionId) {
+  return db.data.whatsappSessions.find((session) =>
+    session.id === sessionId && session.agencyId === agencyId
+  ) || null;
+}
+
+function enrichProjectWhatsapp(project) {
+  const session = findWhatsappSession(project.agencyId, project.whatsappSessionId);
+  const client = db.data.clients.find((c) => c.id === session?.clientId && c.agencyId === project.agencyId);
+  return {
+    ...project,
+    whatsappLinkedNumber: session?.number || project.whatsappNumber || '',
+    whatsappLinkedStatus: session?.status || 'disconnected',
+    whatsappLinkedLabel: session?.label || '',
+    whatsappLinkedClient: client?.name || '',
+    whatsappSession: session ? {
+      id: session.id,
+      clientId: session.clientId,
+      label: session.label,
+      number: session.number,
+      status: session.status,
+      client: client?.name || ''
+    } : null
+  };
+}
+
 function leadStats(lead) {
   const messages = db.data.whatsappMessages.filter((m) =>
     m.preleadId === lead.id || (lead.code && m.code === lead.code)
@@ -181,14 +207,9 @@ agencyRouter.delete('/clients/:id', ensureAgencyActive, async (req, res) => {
 });
 
 agencyRouter.get('/projects', ensureAgencyActive, (req, res) => {
-  const session = db.data.whatsappSessions.find((s) => s.agencyId === agencyId(req));
   const projects = db.data.projects
     .filter((p) => p.agencyId === agencyId(req))
-    .map((project) => omitSensitiveProject({
-      ...project,
-      whatsappLinkedNumber: session?.number || project.whatsappNumber || '',
-      whatsappLinkedStatus: session?.status || 'disconnected'
-    }));
+    .map((project) => omitSensitiveProject(enrichProjectWhatsapp(project)));
   res.json({ projects });
 });
 
@@ -196,7 +217,12 @@ agencyRouter.post('/projects', ensureAgencyActive, async (req, res) => {
   const client = db.data.clients.find((c) => c.id === req.body.clientId && c.agencyId === agencyId(req));
   if (!client) return res.status(400).json({ error: 'Seleccioná un cliente válido.' });
 
-  const session = db.data.whatsappSessions.find((s) => s.agencyId === agencyId(req));
+  const session = findWhatsappSession(agencyId(req), cleanString(req.body.whatsappSessionId, 80));
+  if (!session) return res.status(400).json({ error: 'Seleccioná un WhatsApp vinculado para este proyecto.' });
+
+  if (session.clientId && session.clientId !== client.id) {
+    return res.status(400).json({ error: 'El WhatsApp seleccionado pertenece a otro cliente.' });
+  }
 
   const project = await db.insert('projects', {
     agencyId: agencyId(req),
@@ -204,8 +230,8 @@ agencyRouter.post('/projects', ensureAgencyActive, async (req, res) => {
     publicId: 'tl_' + nanoid(10),
     name: cleanString(req.body.name, 160),
     domain: cleanString(req.body.domain, 240),
-    whatsappSessionId: session?.id || `wa_${agencyId(req)}`,
-    whatsappNumber: normalizePhone(session?.number || req.body.whatsappNumber || ''),
+    whatsappSessionId: session.id,
+    whatsappNumber: normalizePhone(session.number || ''),
     metaPixelId: cleanString(req.body.metaPixelId, 120),
     metaCapiToken: cleanString(req.body.metaCapiToken, 500),
     metaTestEventCode: cleanString(req.body.metaTestEventCode, 120),
@@ -213,20 +239,26 @@ agencyRouter.post('/projects', ensureAgencyActive, async (req, res) => {
     createdAt: nowIso()
   });
 
-  res.status(201).json({ project: omitSensitiveProject(project) });
+  res.status(201).json({ project: omitSensitiveProject(enrichProjectWhatsapp(project)) });
 });
 
 agencyRouter.put('/projects/:id', ensureAgencyActive, async (req, res) => {
   const project = db.data.projects.find((p) => p.id === req.params.id && p.agencyId === agencyId(req));
   if (!project) return res.status(404).json({ error: 'Proyecto no encontrado.' });
 
-  const session = db.data.whatsappSessions.find((s) => s.agencyId === agencyId(req));
+  const sessionId = cleanString(req.body.whatsappSessionId ?? project.whatsappSessionId, 80);
+  const session = findWhatsappSession(agencyId(req), sessionId);
+  if (!session) return res.status(400).json({ error: 'Seleccioná un WhatsApp vinculado válido.' });
+
+  if (session.clientId && session.clientId !== (req.body.clientId || project.clientId)) {
+    return res.status(400).json({ error: 'El WhatsApp seleccionado pertenece a otro cliente.' });
+  }
 
   const patch = {
     name: cleanString(req.body.name ?? project.name, 160),
     domain: cleanString(req.body.domain ?? project.domain, 240),
-    whatsappSessionId: session?.id || project.whatsappSessionId || `wa_${agencyId(req)}`,
-    whatsappNumber: normalizePhone(session?.number || req.body.whatsappNumber || project.whatsappNumber),
+    whatsappSessionId: session.id,
+    whatsappNumber: normalizePhone(session.number || project.whatsappNumber),
     metaPixelId: cleanString(req.body.metaPixelId ?? project.metaPixelId, 120),
     metaTestEventCode: cleanString(req.body.metaTestEventCode ?? project.metaTestEventCode, 120),
     status: cleanString(req.body.status ?? project.status, 50)
@@ -236,7 +268,7 @@ agencyRouter.put('/projects/:id', ensureAgencyActive, async (req, res) => {
   }
 
   const updated = await db.update('projects', project.id, patch);
-  res.json({ project: omitSensitiveProject(updated) });
+  res.json({ project: omitSensitiveProject(enrichProjectWhatsapp(updated)) });
 });
 
 agencyRouter.delete('/projects/:id', ensureAgencyActive, async (req, res) => {

@@ -26,7 +26,6 @@
         <button data-tab="purchases">Comprobantes</button>
         <button data-tab="whatsapp">WhatsApp <span class="pill">QR</span></button>
         <button data-tab="billing">Mi plan</button>
-        <a href="connect.html">Página de vinculación</a>
         <a data-admin-link class="hidden" href="admin.html">Panel admin</a>
       </nav>
 
@@ -272,22 +271,40 @@
 
       <section data-panel="whatsapp" class="hidden">
         <div class="content-grid">
-          <div class="panel wa-box">
+          <div class="panel">
             <div class="panel-head">
-              <h2>Vinculación de WhatsApp</h2>
+              <div>
+                <h2>WhatsApps vinculados</h2>
+                <p class="muted">Vinculá uno o varios WhatsApps por cliente. Después cada proyecto usa uno de estos números.</p>
+              </div>
               <span data-wa-status-2 class="status pending">Cargando</span>
+            </div>
+
+            <div class="soft" style="padding:16px; margin-bottom:16px">
+              <form class="form" data-whatsapp-form>
+                <label>
+                  <span>Cliente</span>
+                  <select name="clientId" required data-wa-client-select></select>
+                </label>
+                <label>
+                  <span>Nombre interno del WhatsApp</span>
+                  <input name="label" placeholder="Atención principal / Pagos / Soporte" value="Atención principal" />
+                </label>
+                <button class="btn btn-primary" type="submit">Vincular nuevo WhatsApp</button>
+              </form>
+            </div>
+
+            <div data-whatsapp-sessions-grid class="cards-grid"></div>
+          </div>
+
+          <aside class="panel wa-box">
+            <div class="panel-head">
+              <h2>QR activo</h2>
+              <span class="pill">Baileys</span>
             </div>
             <div class="qr-large" data-wa-qr-box></div>
             <img data-wa-qr-img class="qr-img hidden" alt="QR de WhatsApp" />
-            <p class="muted" data-wa-copy-2>Generá un QR para vinculación.</p>
-            <div class="actions" style="justify-content:center">
-              <button class="btn btn-primary" data-request-qr>Generar QR</button>
-              <button class="btn btn-secondary" data-request-qr>Reconectar / pedir QR</button>
-              <button class="btn btn-danger" data-disconnect-wa>Desconectar</button>
-            </div>
-          </div>
-          <aside class="panel">
-            <h2>Instrucciones</h2>
+            <p class="muted" data-wa-copy-2>Elegí un cliente y generá un QR para vincular el WhatsApp.</p>
             <ol class="instructions">
               <li>Abrí WhatsApp en el teléfono del cliente.</li>
               <li>Entrá en Dispositivos vinculados.</li>
@@ -295,7 +312,7 @@
               <li>Escaneá el QR que muestra TrueLead.</li>
             </ol>
             <div class="notice">
-              En esta versión el QR es demo. La conexión real queda preparada para integrar Baileys/Cloud API en el siguiente paso.
+              Este QR conecta un WhatsApp real mediante Baileys. TrueLead detectará mensajes entrantes, códigos TL y comprobantes de ese número.
             </div>
           </aside>
         </div>
@@ -368,7 +385,11 @@
         <label><span>Cliente</span><select name="clientId" required data-client-select></select></label>
         <label><span>Nombre del proyecto</span><input name="name" required placeholder="Landing Junio" /></label>
         <label><span>Dominio de landing</span><input name="domain" placeholder="https://cliente.com" /></label>
-        <div class="notice">Este proyecto usa automáticamente el WhatsApp vinculado por QR en la pestaña WhatsApp. Ya no hace falta escribir el número manualmente.</div>
+        <label>
+          <span>WhatsApp vinculado</span>
+          <select name="whatsappSessionId" required data-whatsapp-session-select></select>
+        </label>
+        <div class="notice">Primero vinculá uno o varios WhatsApps por cliente. El proyecto abrirá WhatsApp hacia el número seleccionado y TrueLead escuchará ese mismo número.</div>
         <label><span>Meta Pixel ID</span><input name="metaPixelId" placeholder="123456789" /></label>
         <label><span>Meta CAPI Token</span><textarea name="metaCapiToken" rows="3" placeholder="EAAB..."></textarea></label>
         <label><span>Test Event Code opcional</span><input name="metaTestEventCode" placeholder="TEST12345" /></label>

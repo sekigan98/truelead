@@ -15,9 +15,18 @@ function generateUniqueLeadCode() {
 }
 
 function getProjectWhatsapp(project) {
-  const session = db.data.whatsappSessions.find((item) =>
-    item.id === project.whatsappSessionId || item.agencyId === project.agencyId
+  let session = db.data.whatsappSessions.find((item) =>
+    item.id === project.whatsappSessionId && item.agencyId === project.agencyId
   );
+
+  // Fallback suave para proyectos viejos sin whatsappSessionId.
+  if (!session && project.clientId) {
+    session = db.data.whatsappSessions.find((item) =>
+      item.agencyId === project.agencyId &&
+      item.clientId === project.clientId &&
+      item.status === 'connected'
+    );
+  }
 
   const sessionNumber = normalizePhone(session?.number || '');
   const fallbackNumber = normalizePhone(project.whatsappNumber || '');
@@ -30,7 +39,15 @@ function getProjectWhatsapp(project) {
   };
 }
 
-function buildWhatsAppMessage(project, code) {
+function buildWhatsAppMessage(project, code, template = '') {
+  const rawTemplate = cleanString(template, 700);
+  if (rawTemplate) {
+    if (rawTemplate.includes('{{code}}')) {
+      return rawTemplate.replaceAll('{{code}}', code);
+    }
+    return `${rawTemplate} ${code}`.trim();
+  }
+
   return `Hola, quiero recibir información. Mi código es: ${code}`;
 }
 
@@ -54,7 +71,7 @@ preleadRouter.post('/preleads', async (req, res) => {
   }
 
   const code = generateUniqueLeadCode();
-  const message = buildWhatsAppMessage(project, code);
+  const message = buildWhatsAppMessage(project, code, req.body.messageTemplate || req.body.message);
   const whatsappHref = buildWhatsAppHref(whatsapp.number, message);
 
   const prelead = await db.insert('preleads', {
@@ -67,6 +84,8 @@ preleadRouter.post('/preleads', async (req, res) => {
     metaStatus: 'pending',
     landingUrl: cleanString(req.body.landingUrl || req.headers.referer || '', 500),
     visitorId: cleanString(req.body.visitorId, 120),
+    buttonSource: cleanString(req.body.buttonSource || req.body.source, 120),
+    messageTemplate: cleanString(req.body.messageTemplate || req.body.message, 700),
     fbp: cleanString(req.body.fbp, 240),
     fbc: cleanString(req.body.fbc, 240),
     utm: req.body.utm || {},

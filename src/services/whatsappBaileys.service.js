@@ -2,6 +2,7 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import QRCode from 'qrcode';
 import pino from 'pino';
+import { nanoid } from 'nanoid';
 import makeWASocket, {
   DisconnectReason,
   fetchLatestBaileysVersion,
@@ -16,27 +17,6 @@ function getDataRoot() {
   const dataFile = process.env.DATA_FILE || './data/truelead-db.json';
   const dir = path.dirname(path.isAbsolute(dataFile) ? dataFile : path.resolve(process.cwd(), dataFile));
   return path.join(dir, 'whatsapp-sessions');
-}
-
-function ensureSessionRecord(agencyId) {
-  let session = db.data.whatsappSessions.find((s) => s.agencyId === agencyId);
-  if (!session) {
-    session = {
-      id: `wa_${agencyId}`,
-      agencyId,
-      status: 'disconnected',
-      qr: null,
-      qrDataUrl: null,
-      number: '',
-      device: '',
-      lastActivityAt: null,
-      lastError: '',
-      createdAt: nowIso(),
-      updatedAt: nowIso()
-    };
-    db.data.whatsappSessions.push(session);
-  }
-  return session;
 }
 
 function getContentInfo(message = {}) {
@@ -105,6 +85,10 @@ function getContentInfo(message = {}) {
   return { text: '', type: 'unknown', hasMedia: false };
 }
 
+function sessionFolderName(sessionId) {
+  return String(sessionId || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
 export class WhatsAppBaileysManager {
   constructor() {
     this.instances = new Map();
@@ -115,25 +99,84 @@ export class WhatsAppBaileysManager {
   async init() {
     await fs.mkdir(this.sessionRoot, { recursive: true });
 
+    // Migration suave: sesiones viejas sin label/clientId siguen funcionando.
+    for (const session of db.data.whatsappSessions || []) {
+      session.label = session.label || 'WhatsApp principal';
+      session.clientId = session.clientId || '';
+      session.updatedAt = session.updatedAt || nowIso();
+    }
+    await db.save();
+
     if (process.env.WHATSAPP_AUTO_RESTORE === 'true') {
       const sessions = db.data.whatsappSessions.filter((session) =>
         ['connected', 'connecting', 'qr'].includes(session.status)
       );
 
       for (const session of sessions) {
-        this.start(session.agencyId).catch((err) => {
-          console.error('[wa] restore error', session.agencyId, err);
+        this.start({
+          agencyId: session.agencyId,
+          sessionId: session.id,
+          clientId: session.clientId,
+          label: session.label
+        }).catch((err) => {
+          console.error('[wa] restore error', session.id, err);
         });
       }
     }
   }
 
-  getSession(agencyId) {
-    return ensureSessionRecord(agencyId);
+  listSessions(agencyId) {
+    return db.data.whatsappSessions
+      .filter((session) => session.agencyId === agencyId)
+      .sort((a, b) => String(b.updatedAt || b.createdAt).localeCompare(String(a.updatedAt || a.createdAt)));
   }
 
-  async updateSession(agencyId, patch) {
-    const session = ensureSessionRecord(agencyId);
+  getSession(agencyId, sessionId = '') {
+    const sessions = this.listSessions(agencyId);
+    if (sessionId) {
+      return sessions.find((session) => session.id === sessionId) || null;
+    }
+    return sessions[0] || null;
+  }
+
+  ensureSessionRecord({ agencyId, sessionId = '', clientId = '', label = '' }) {
+    let session = sessionId
+      ? db.data.whatsappSessions.find((s) => s.id === sessionId && s.agencyId === agencyId)
+      : null;
+
+    if (!session) {
+      session = {
+        id: sessionId || `wa_${nanoid(10)}`,
+        agencyId,
+        clientId: cleanString(clientId, 80),
+        label: cleanString(label || 'WhatsApp principal', 120),
+        status: 'disconnected',
+        qr: null,
+        qrDataUrl: null,
+        number: '',
+        device: '',
+        lastActivityAt: null,
+        lastError: '',
+        createdAt: nowIso(),
+        updatedAt: nowIso()
+      };
+      db.data.whatsappSessions.push(session);
+    }
+
+    if (clientId !== undefined && clientId !== null && String(clientId).trim()) {
+      session.clientId = cleanString(clientId, 80);
+    }
+    if (label !== undefined && label !== null && String(label).trim()) {
+      session.label = cleanString(label, 120);
+    }
+    session.label = session.label || 'WhatsApp principal';
+    session.clientId = session.clientId || '';
+
+    return session;
+  }
+
+  async updateSession(agencyId, sessionId, patch) {
+    const session = this.ensureSessionRecord({ agencyId, sessionId });
     Object.assign(session, patch, {
       updatedAt: nowIso()
     });
@@ -141,21 +184,25 @@ export class WhatsAppBaileysManager {
     return session;
   }
 
-  async start(agencyId) {
-    const existing = this.instances.get(agencyId);
+  async start({ agencyId, sessionId = '', clientId = '', label = '' }) {
+    const sessionRecord = this.ensureSessionRecord({ agencyId, sessionId, clientId, label });
+    const sid = sessionRecord.id;
+
+    const existing = this.instances.get(sid);
     if (existing?.sock) {
-      return this.getSession(agencyId);
+      return this.getSession(agencyId, sid);
     }
 
-    await fs.mkdir(path.join(this.sessionRoot, agencyId), { recursive: true });
-    await this.updateSession(agencyId, {
+    const sessionDir = path.join(this.sessionRoot, sessionFolderName(sid));
+    await fs.mkdir(sessionDir, { recursive: true });
+    await this.updateSession(agencyId, sid, {
       status: 'connecting',
       lastError: '',
       qr: null,
       qrDataUrl: null
     });
 
-    const { state, saveCreds } = await useMultiFileAuthState(path.join(this.sessionRoot, agencyId));
+    const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
     const { version } = await fetchLatestBaileysVersion();
 
     const sock = makeWASocket({
@@ -168,7 +215,7 @@ export class WhatsAppBaileysManager {
       printQRInTerminal: false
     });
 
-    this.instances.set(agencyId, { sock, saveCreds });
+    this.instances.set(sid, { sock, saveCreds, agencyId });
 
     sock.ev.on('creds.update', saveCreds);
 
@@ -185,23 +232,23 @@ export class WhatsAppBaileysManager {
           }
         });
 
-        const session = await this.updateSession(agencyId, {
+        const session = await this.updateSession(agencyId, sid, {
           status: 'qr',
           qr,
           qrDataUrl,
           lastActivityAt: nowIso()
         });
 
-        const waiter = this.qrWaiters.get(agencyId);
+        const waiter = this.qrWaiters.get(sid);
         if (waiter) {
           waiter(session);
-          this.qrWaiters.delete(agencyId);
+          this.qrWaiters.delete(sid);
         }
       }
 
       if (connection === 'open') {
         const number = jidToPhone(sock.user?.id || '');
-        await this.updateSession(agencyId, {
+        await this.updateSession(agencyId, sid, {
           status: 'connected',
           qr: null,
           qrDataUrl: null,
@@ -211,10 +258,10 @@ export class WhatsAppBaileysManager {
           lastError: ''
         });
 
-        const waiter = this.qrWaiters.get(agencyId);
+        const waiter = this.qrWaiters.get(sid);
         if (waiter) {
-          waiter(this.getSession(agencyId));
-          this.qrWaiters.delete(agencyId);
+          waiter(this.getSession(agencyId, sid));
+          this.qrWaiters.delete(sid);
         }
       }
 
@@ -222,7 +269,7 @@ export class WhatsAppBaileysManager {
         const statusCode = lastDisconnect?.error?.output?.statusCode;
         const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
 
-        await this.updateSession(agencyId, {
+        await this.updateSession(agencyId, sid, {
           status: shouldReconnect ? 'disconnected' : 'logged_out',
           qr: null,
           qrDataUrl: null,
@@ -230,11 +277,11 @@ export class WhatsAppBaileysManager {
           lastActivityAt: nowIso()
         });
 
-        this.instances.delete(agencyId);
+        this.instances.delete(sid);
 
         if (shouldReconnect && process.env.WHATSAPP_DISABLE_RECONNECT !== 'true') {
           setTimeout(() => {
-            this.start(agencyId).catch((err) => console.error('[wa] reconnect error', err));
+            this.start({ agencyId, sessionId: sid }).catch((err) => console.error('[wa] reconnect error', err));
           }, 5000);
         }
       }
@@ -244,26 +291,26 @@ export class WhatsAppBaileysManager {
       if (type !== 'notify') return;
 
       for (const message of messages) {
-        await this.handleMessage(agencyId, message);
+        await this.handleMessage(sessionRecord, message);
       }
     });
 
     const session = await new Promise((resolve) => {
       const timeout = setTimeout(() => {
-        this.qrWaiters.delete(agencyId);
-        resolve(this.getSession(agencyId));
+        this.qrWaiters.delete(sid);
+        resolve(this.getSession(agencyId, sid));
       }, Number(process.env.WHATSAPP_QR_WAIT_MS || 25000));
 
-      this.qrWaiters.set(agencyId, (session) => {
+      this.qrWaiters.set(sid, (currentSession) => {
         clearTimeout(timeout);
-        resolve(session);
+        resolve(currentSession);
       });
     });
 
     return session;
   }
 
-  async handleMessage(agencyId, message) {
+  async handleMessage(session, message) {
     try {
       if (!message?.message) return null;
       if (message.key?.fromMe) return null;
@@ -275,7 +322,9 @@ export class WhatsAppBaileysManager {
       if (!content.text && !content.hasMedia) return null;
 
       const result = await registerIncomingWhatsAppMessage({
-        agencyId,
+        agencyId: session.agencyId,
+        clientId: session.clientId || '',
+        whatsappSessionId: session.id,
         messageId: message.key?.id || '',
         from,
         text: content.text || '',
@@ -286,22 +335,25 @@ export class WhatsAppBaileysManager {
         source: 'baileys'
       });
 
-      await this.updateSession(agencyId, {
+      await this.updateSession(session.agencyId, session.id, {
         lastActivityAt: nowIso()
       });
 
       return result;
     } catch (err) {
       console.error('[wa] message handler error', err);
-      await this.updateSession(agencyId, {
+      await this.updateSession(session.agencyId, session.id, {
         lastError: cleanString(err.message || String(err), 400)
       });
       return null;
     }
   }
 
-  async disconnect(agencyId) {
-    const instance = this.instances.get(agencyId);
+  async disconnect(agencyId, sessionId = '') {
+    const session = this.getSession(agencyId, sessionId);
+    if (!session) return null;
+
+    const instance = this.instances.get(session.id);
     if (instance?.sock) {
       try {
         await instance.sock.logout();
@@ -311,9 +363,9 @@ export class WhatsAppBaileysManager {
       } catch {}
     }
 
-    this.instances.delete(agencyId);
+    this.instances.delete(session.id);
 
-    return this.updateSession(agencyId, {
+    return this.updateSession(agencyId, session.id, {
       status: 'disconnected',
       qr: null,
       qrDataUrl: null,
@@ -321,10 +373,13 @@ export class WhatsAppBaileysManager {
     });
   }
 
-  async resetSession(agencyId) {
-    await this.disconnect(agencyId);
-    await fs.rm(path.join(this.sessionRoot, agencyId), { recursive: true, force: true });
-    return this.updateSession(agencyId, {
+  async resetSession(agencyId, sessionId = '') {
+    const session = this.getSession(agencyId, sessionId);
+    if (!session) return null;
+
+    await this.disconnect(agencyId, session.id);
+    await fs.rm(path.join(this.sessionRoot, sessionFolderName(session.id)), { recursive: true, force: true });
+    return this.updateSession(agencyId, session.id, {
       status: 'disconnected',
       qr: null,
       qrDataUrl: null,

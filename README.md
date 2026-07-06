@@ -283,3 +283,37 @@ APP_URL=https://app.truelead.com.ar
 ```
 
 Netlify also includes `frontend/_redirects` as an extra proxy fallback for `/api/*`.
+
+
+## Versión 1.4.0 — WhatsApps por cliente y proyectos vinculados
+
+Cambios principales:
+
+- Un cliente puede tener uno o varios WhatsApps vinculados.
+- Cada WhatsApp tiene cliente, nombre interno, estado, número detectado y QR propio.
+- Al crear un proyecto se selecciona un WhatsApp vinculado; ya no se usa un número manual.
+- El SDK soporta mensajes personalizados por botón con `data-truelead-message`.
+- El SDK soporta `data-truelead-source` para medir qué botón generó el lead.
+- El código `TL-XXXXXX` sigue siendo único por click/persona y lo genera TrueLead.
+- Baileys asocia mensajes entrantes, leads y comprobantes al WhatsApp vinculado correspondiente.
+- Se eliminaron textos viejos de “QR demo”.
+
+Ejemplo de botón para landing:
+
+```html
+<a
+  href="#"
+  data-truelead-whatsapp
+  data-truelead-source="hero"
+  data-truelead-message="Hola, quiero recibir información. Mi código es: {{code}}">
+  Enviar WhatsApp
+</a>
+
+<script
+  src="https://app.truelead.com.ar/sdk/truelead.js"
+  data-project="tl_TU_PROJECT_ID"
+  data-api="https://app.truelead.com.ar">
+</script>
+```
+
+El texto `{{code}}` se reemplaza automáticamente por el código real generado para esa persona.
