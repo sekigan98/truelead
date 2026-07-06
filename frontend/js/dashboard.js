@@ -64,6 +64,28 @@ function sessionLabel(session) {
   return `${client} · ${name}${number}`;
 }
 
+function escapeHtml(value = '') {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+function setField(form, name, value = '') {
+  const field = form?.elements?.[name];
+  if (field) field.value = value ?? '';
+}
+
+function closeModal(modal) {
+  modal?.classList.remove('open');
+}
+
+function modalByName(name) {
+  return document.querySelector(`[data-modal="${name}"]`);
+}
+
 function renderMetrics() {
   const metrics = state.dashboard?.metrics || {};
   const set = (name, value) => {
@@ -181,17 +203,29 @@ function renderClients() {
   const wrap = document.querySelector('[data-clients-grid]');
   wrap.innerHTML = state.clients.length ? state.clients.map(c => `
     <article class="soft client-card">
-      <h3>${c.name}</h3>
-      <p>${c.email || 'Sin email'}</p>
-      <p>${c.phone || 'Sin teléfono'}</p>
-      <span class="status ${c.status === 'active' ? 'active' : 'pending'}">${c.status}</span>
+      <h3>${escapeHtml(c.name)}</h3>
+      <p>${escapeHtml(c.email || 'Sin email')}</p>
+      <p>${escapeHtml(c.phone || 'Sin teléfono')}</p>
+      <span class="status ${c.status === 'active' ? 'active' : 'pending'}">${escapeHtml(c.status || 'active')}</span>
+      <div class="actions" style="margin-top:14px">
+        <button class="btn btn-secondary btn-small" data-edit-client="${c.id}">Editar</button>
+        <button class="btn btn-danger btn-small" data-delete-client="${c.id}">Eliminar</button>
+      </div>
     </article>
   `).join('') : '<p class="muted">No hay clientes todavía.</p>';
+
+  wrap.querySelectorAll('[data-edit-client]').forEach(btn => {
+    btn.addEventListener('click', () => openClientModal(btn.dataset.editClient));
+  });
+
+  wrap.querySelectorAll('[data-delete-client]').forEach(btn => {
+    btn.addEventListener('click', () => deleteClient(btn.dataset.deleteClient));
+  });
 
   renderClientSelects();
 }
 
-function renderWhatsappSessionSelect() {
+function renderWhatsappSessionSelect(selectedSessionId = '') {
   const select = document.querySelector('[data-whatsapp-session-select]');
   if (!select) return;
 
@@ -201,8 +235,10 @@ function renderWhatsappSessionSelect() {
   );
 
   select.innerHTML = sessions.length
-    ? sessions.map(session => `<option value="${session.id}">${sessionLabel(session)} · ${session.status}</option>`).join('')
+    ? sessions.map(session => `<option value="${session.id}">${escapeHtml(sessionLabel(session))} · ${escapeHtml(session.status || 'disconnected')}</option>`).join('')
     : '<option value="">Primero vinculá un WhatsApp para este cliente</option>';
+
+  if (selectedSessionId) select.value = selectedSessionId;
 }
 
 function sdkSnippet(project) {
@@ -226,15 +262,28 @@ function renderProjects() {
   const wrap = document.querySelector('[data-projects-grid]');
   wrap.innerHTML = state.projects.length ? state.projects.map(p => `
     <article class="soft client-card">
-      <h3>${p.name}</h3>
-      <p>Public ID: <strong>${p.publicId}</strong></p>
-      <p>WhatsApp vinculado: ${p.whatsappLinkedLabel || 'Sin etiqueta'} ${p.whatsappLinkedNumber ? `· ${p.whatsappLinkedNumber}` : ''}</p>
-      <p>Estado WhatsApp: <span class="tag ${TLUtils.statusClass(p.whatsappLinkedStatus)}">${p.whatsappLinkedStatus || 'disconnected'}</span></p>
-      <p>Dominio: ${p.domain || '-'}</p>
-      <span class="status ${p.status === 'active' ? 'active' : 'pending'}">${p.status}</span>
+      <h3>${escapeHtml(p.name)}</h3>
+      <p>Public ID: <strong>${escapeHtml(p.publicId)}</strong></p>
+      <p>Cliente: ${escapeHtml(clientName(p.clientId))}</p>
+      <p>WhatsApp vinculado: ${escapeHtml(p.whatsappLinkedLabel || 'Sin etiqueta')} ${p.whatsappLinkedNumber ? `· ${escapeHtml(p.whatsappLinkedNumber)}` : ''}</p>
+      <p>Estado WhatsApp: <span class="tag ${TLUtils.statusClass(p.whatsappLinkedStatus)}">${escapeHtml(p.whatsappLinkedStatus || 'disconnected')}</span></p>
+      <p>Dominio: ${escapeHtml(p.domain || '-')}</p>
+      <span class="status ${p.status === 'active' ? 'active' : 'pending'}">${escapeHtml(p.status || 'active')}</span>
       <textarea rows="10" readonly style="margin-top:12px">${sdkSnippet(p)}</textarea>
+      <div class="actions" style="margin-top:14px">
+        <button class="btn btn-secondary btn-small" data-edit-project="${p.id}">Editar</button>
+        <button class="btn btn-danger btn-small" data-delete-project="${p.id}">Eliminar</button>
+      </div>
     </article>
   `).join('') : '<p class="muted">No hay proyectos todavía. Primero creá un cliente y vinculá WhatsApp.</p>';
+
+  wrap.querySelectorAll('[data-edit-project]').forEach(btn => {
+    btn.addEventListener('click', () => openProjectModal(btn.dataset.editProject));
+  });
+
+  wrap.querySelectorAll('[data-delete-project]').forEach(btn => {
+    btn.addEventListener('click', () => deleteProject(btn.dataset.deleteProject));
+  });
 }
 
 function purchaseRow(purchase) {
@@ -404,7 +453,94 @@ async function updatePurchase(id, status) {
   }
 }
 
+
+function openClientModal(clientId = '') {
+  const modal = modalByName('client');
+  const form = document.querySelector('[data-client-form]');
+  const title = document.querySelector('[data-client-modal-title]');
+  if (!modal || !form) return;
+
+  form.reset();
+  form.dataset.editId = clientId || '';
+  const client = state.clients.find(c => c.id === clientId);
+  if (title) title.textContent = client ? 'Editar cliente' : 'Nuevo cliente';
+
+  if (client) {
+    setField(form, 'name', client.name);
+    setField(form, 'email', client.email);
+    setField(form, 'phone', client.phone);
+    setField(form, 'notes', client.notes);
+  }
+
+  modal.classList.add('open');
+}
+
+function openProjectModal(projectId = '') {
+  const modal = modalByName('project');
+  const form = document.querySelector('[data-project-form]');
+  const title = document.querySelector('[data-project-modal-title]');
+  if (!modal || !form) return;
+
+  form.reset();
+  form.dataset.editId = projectId || '';
+  const project = state.projects.find(p => p.id === projectId);
+  if (title) title.textContent = project ? 'Editar proyecto' : 'Nuevo proyecto';
+
+  renderClientSelects();
+
+  if (project) {
+    setField(form, 'clientId', project.clientId);
+    renderWhatsappSessionSelect(project.whatsappSessionId);
+    setField(form, 'whatsappSessionId', project.whatsappSessionId);
+    setField(form, 'name', project.name);
+    setField(form, 'domain', project.domain);
+    setField(form, 'metaPixelId', project.metaPixelId);
+    setField(form, 'metaTestEventCode', project.metaTestEventCode);
+    setField(form, 'metaCapiToken', '');
+  } else {
+    renderWhatsappSessionSelect();
+  }
+
+  modal.classList.add('open');
+}
+
+async function deleteClient(clientId) {
+  const client = state.clients.find(c => c.id === clientId);
+  if (!client) return;
+  const relatedProjects = state.projects.filter(p => p.clientId === clientId).length;
+  const relatedWhatsApps = state.whatsappSessions.filter(s => s.clientId === clientId).length;
+  const warning = relatedProjects || relatedWhatsApps
+    ? `\n\nTambién se eliminarán/desasociarán ${relatedProjects} proyecto(s) y ${relatedWhatsApps} WhatsApp(s) vinculados a este cliente.`
+    : '';
+
+  if (!confirm(`¿Eliminar el cliente "${client.name}"?${warning}`)) return;
+
+  try {
+    await TrueLeadAPI.delete(`/api/agency/clients/${clientId}`);
+    TLUtils.showMessage(messageBox, 'Cliente eliminado correctamente.', 'success');
+    await loadAll();
+  } catch (error) {
+    TLUtils.showMessage(messageBox, error.message, 'error');
+  }
+}
+
+async function deleteProject(projectId) {
+  const project = state.projects.find(p => p.id === projectId);
+  if (!project) return;
+  if (!confirm(`¿Eliminar el proyecto "${project.name}"? Los leads históricos quedan guardados para estadísticas.`)) return;
+
+  try {
+    await TrueLeadAPI.delete(`/api/agency/projects/${projectId}`);
+    TLUtils.showMessage(messageBox, 'Proyecto eliminado correctamente.', 'success');
+    await loadAll();
+  } catch (error) {
+    TLUtils.showMessage(messageBox, error.message, 'error');
+  }
+}
+
 document.querySelectorAll('[data-open-modal]').forEach(btn => btn.addEventListener('click', () => {
+  if (btn.dataset.openModal === 'client') return openClientModal();
+  if (btn.dataset.openModal === 'project') return openProjectModal();
   const modal = document.querySelector(`[data-modal="${btn.dataset.openModal}"]`);
   modal?.classList.add('open');
   renderWhatsappSessionSelect();
@@ -418,11 +554,19 @@ document.querySelector('[data-client-select]')?.addEventListener('change', rende
 document.querySelector('[data-client-form]')?.addEventListener('submit', async (event) => {
   event.preventDefault();
   const form = new FormData(event.target);
+  const payload = Object.fromEntries(form.entries());
+  const editId = event.target.dataset.editId || '';
   try {
-    await TrueLeadAPI.post('/api/agency/clients', Object.fromEntries(form.entries()));
+    if (editId) {
+      await TrueLeadAPI.put(`/api/agency/clients/${editId}`, payload);
+      TLUtils.showMessage(messageBox, 'Cliente actualizado correctamente.', 'success');
+    } else {
+      await TrueLeadAPI.post('/api/agency/clients', payload);
+      TLUtils.showMessage(messageBox, 'Cliente creado correctamente.', 'success');
+    }
     event.target.reset();
-    event.target.closest('.modal-backdrop')?.classList.remove('open');
-    TLUtils.showMessage(messageBox, 'Cliente creado correctamente.', 'success');
+    event.target.dataset.editId = '';
+    closeModal(event.target.closest('.modal-backdrop'));
     await loadAll();
   } catch (error) {
     TLUtils.showMessage(messageBox, error.message, 'error');
@@ -432,11 +576,19 @@ document.querySelector('[data-client-form]')?.addEventListener('submit', async (
 document.querySelector('[data-project-form]')?.addEventListener('submit', async (event) => {
   event.preventDefault();
   const form = new FormData(event.target);
+  const payload = Object.fromEntries(form.entries());
+  const editId = event.target.dataset.editId || '';
   try {
-    await TrueLeadAPI.post('/api/agency/projects', Object.fromEntries(form.entries()));
+    if (editId) {
+      await TrueLeadAPI.put(`/api/agency/projects/${editId}`, payload);
+      TLUtils.showMessage(messageBox, 'Proyecto actualizado correctamente.', 'success');
+    } else {
+      await TrueLeadAPI.post('/api/agency/projects', payload);
+      TLUtils.showMessage(messageBox, 'Proyecto creado correctamente con WhatsApp vinculado.', 'success');
+    }
     event.target.reset();
-    event.target.closest('.modal-backdrop')?.classList.remove('open');
-    TLUtils.showMessage(messageBox, 'Proyecto creado correctamente con WhatsApp vinculado.', 'success');
+    event.target.dataset.editId = '';
+    closeModal(event.target.closest('.modal-backdrop'));
     await loadAll();
   } catch (error) {
     TLUtils.showMessage(messageBox, error.message, 'error');

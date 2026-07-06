@@ -200,10 +200,49 @@ agencyRouter.put('/clients/:id', ensureAgencyActive, async (req, res) => {
 });
 
 agencyRouter.delete('/clients/:id', ensureAgencyActive, async (req, res) => {
-  const client = db.data.clients.find((c) => c.id === req.params.id && c.agencyId === agencyId(req));
+  const aid = agencyId(req);
+  const client = db.data.clients.find((c) => c.id === req.params.id && c.agencyId === aid);
   if (!client) return res.status(404).json({ error: 'Cliente no encontrado.' });
-  await db.remove('clients', client.id);
-  res.json({ ok: true });
+
+  const projectIds = db.data.projects
+    .filter((project) => project.agencyId === aid && project.clientId === client.id)
+    .map((project) => project.id);
+  const sessionIds = db.data.whatsappSessions
+    .filter((session) => session.agencyId === aid && session.clientId === client.id)
+    .map((session) => session.id);
+
+  db.data.clients = db.data.clients.filter((item) => item.id !== client.id);
+  db.data.projects = db.data.projects.filter((item) => !(item.agencyId === aid && item.clientId === client.id));
+  db.data.whatsappSessions = db.data.whatsappSessions.filter((item) => !(item.agencyId === aid && item.clientId === client.id));
+
+  // Conservamos leads, mensajes y comprobantes como historial, pero quedan desasociados del cliente/proyecto eliminado.
+  for (const lead of db.data.preleads || []) {
+    if (lead.agencyId === aid && lead.clientId === client.id) {
+      lead.clientId = '';
+      if (projectIds.includes(lead.projectId)) lead.projectId = '';
+      if (sessionIds.includes(lead.whatsappSessionId)) lead.whatsappSessionId = '';
+      lead.updatedAt = nowIso();
+    }
+  }
+  for (const message of db.data.whatsappMessages || []) {
+    if (message.agencyId === aid && message.clientId === client.id) {
+      message.clientId = '';
+      if (projectIds.includes(message.projectId)) message.projectId = '';
+      if (sessionIds.includes(message.whatsappSessionId)) message.whatsappSessionId = '';
+      message.updatedAt = nowIso();
+    }
+  }
+  for (const purchase of db.data.purchases || []) {
+    if (purchase.agencyId === aid && purchase.clientId === client.id) {
+      purchase.clientId = '';
+      if (projectIds.includes(purchase.projectId)) purchase.projectId = '';
+      if (sessionIds.includes(purchase.whatsappSessionId)) purchase.whatsappSessionId = '';
+      purchase.updatedAt = nowIso();
+    }
+  }
+
+  await db.save();
+  res.json({ ok: true, removedProjects: projectIds.length, removedWhatsappSessions: sessionIds.length });
 });
 
 agencyRouter.get('/projects', ensureAgencyActive, (req, res) => {
@@ -246,15 +285,20 @@ agencyRouter.put('/projects/:id', ensureAgencyActive, async (req, res) => {
   const project = db.data.projects.find((p) => p.id === req.params.id && p.agencyId === agencyId(req));
   if (!project) return res.status(404).json({ error: 'Proyecto no encontrado.' });
 
+  const nextClientId = cleanString(req.body.clientId ?? project.clientId, 80);
+  const client = db.data.clients.find((c) => c.id === nextClientId && c.agencyId === agencyId(req));
+  if (!client) return res.status(400).json({ error: 'Seleccioná un cliente válido.' });
+
   const sessionId = cleanString(req.body.whatsappSessionId ?? project.whatsappSessionId, 80);
   const session = findWhatsappSession(agencyId(req), sessionId);
   if (!session) return res.status(400).json({ error: 'Seleccioná un WhatsApp vinculado válido.' });
 
-  if (session.clientId && session.clientId !== (req.body.clientId || project.clientId)) {
+  if (session.clientId && session.clientId !== nextClientId) {
     return res.status(400).json({ error: 'El WhatsApp seleccionado pertenece a otro cliente.' });
   }
 
   const patch = {
+    clientId: nextClientId,
     name: cleanString(req.body.name ?? project.name, 160),
     domain: cleanString(req.body.domain ?? project.domain, 240),
     whatsappSessionId: session.id,
