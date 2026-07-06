@@ -241,6 +241,15 @@ function renderWhatsappSessionSelect(selectedSessionId = '') {
   if (selectedSessionId) select.value = selectedSessionId;
 }
 
+function domainsDisplay(value) {
+  const items = String(value || '')
+    .split(/[\s,;]+/)
+    .map(item => item.trim())
+    .filter(Boolean);
+
+  return items.length ? items.map(escapeHtml).join('<br>') : '-';
+}
+
 function sdkSnippet(project) {
   const api = location.origin;
   return `<a
@@ -267,7 +276,7 @@ function renderProjects() {
       <p>Cliente: ${escapeHtml(clientName(p.clientId))}</p>
       <p>WhatsApp vinculado: ${escapeHtml(p.whatsappLinkedLabel || 'Sin etiqueta')} ${p.whatsappLinkedNumber ? `· ${escapeHtml(p.whatsappLinkedNumber)}` : ''}</p>
       <p>Estado WhatsApp: <span class="tag ${TLUtils.statusClass(p.whatsappLinkedStatus)}">${escapeHtml(p.whatsappLinkedStatus || 'disconnected')}</span></p>
-      <p>Dominio: ${escapeHtml(p.domain || '-')}</p>
+      <p>Dominios autorizados:<br>${domainsDisplay(p.domain)}</p>
       <span class="status ${p.status === 'active' ? 'active' : 'pending'}">${escapeHtml(p.status || 'active')}</span>
       <textarea rows="10" readonly style="margin-top:12px">${sdkSnippet(p)}</textarea>
       <div class="actions" style="margin-top:14px">

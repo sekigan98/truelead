@@ -7,7 +7,8 @@ import {
   omitSensitiveProject,
   nowIso,
   parseDateRange,
-  isBetweenDates
+  isBetweenDates,
+  normalizeAuthorizedDomains
 } from '../lib/utils.js';
 import { requireAuth } from '../middleware/auth.js';
 import { getPlanById } from '../lib/pricing.js';
@@ -268,7 +269,7 @@ agencyRouter.post('/projects', ensureAgencyActive, async (req, res) => {
     clientId: client.id,
     publicId: 'tl_' + nanoid(10),
     name: cleanString(req.body.name, 160),
-    domain: cleanString(req.body.domain, 240),
+    domain: normalizeAuthorizedDomains(req.body.domain),
     whatsappSessionId: session.id,
     whatsappNumber: normalizePhone(session.number || ''),
     metaPixelId: cleanString(req.body.metaPixelId, 120),
@@ -300,7 +301,7 @@ agencyRouter.put('/projects/:id', ensureAgencyActive, async (req, res) => {
   const patch = {
     clientId: nextClientId,
     name: cleanString(req.body.name ?? project.name, 160),
-    domain: cleanString(req.body.domain ?? project.domain, 240),
+    domain: normalizeAuthorizedDomains(req.body.domain ?? project.domain),
     whatsappSessionId: session.id,
     whatsappNumber: normalizePhone(session.number || project.whatsappNumber),
     metaPixelId: cleanString(req.body.metaPixelId ?? project.metaPixelId, 120),

@@ -61,6 +61,85 @@ export function addDays(date, days) {
 }
 
 
+export function normalizeOrigin(value) {
+  const raw = cleanString(value, 500);
+  if (!raw) return '';
+
+  try {
+    const withProtocol = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    const url = new URL(withProtocol);
+    return url.origin.toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
+export function normalizeHostname(value) {
+  const origin = normalizeOrigin(value);
+  if (!origin) return '';
+  try {
+    return new URL(origin).hostname.toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
+export function parseAuthorizedDomains(value) {
+  return String(value || '')
+    .split(/[\s,;]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((raw) => {
+      const normalizedRaw = raw.replace(/\/+$/, '');
+      const isWildcard = normalizedRaw.includes('*.');
+      const origin = normalizeOrigin(normalizedRaw.replace('*.', ''));
+      const hostname = normalizeHostname(normalizedRaw.replace('*.', ''));
+      return {
+        raw: normalizedRaw,
+        origin,
+        hostname,
+        wildcard: isWildcard
+      };
+    })
+    .filter((item) => item.origin && item.hostname);
+}
+
+export function normalizeAuthorizedDomains(value) {
+  const domains = parseAuthorizedDomains(value);
+  const seen = new Set();
+  const out = [];
+
+  for (const domain of domains) {
+    const key = domain.wildcard ? `*.${domain.hostname}` : domain.origin;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(domain.wildcard ? `*.${domain.hostname}` : domain.origin);
+  }
+
+  return out.join('\n');
+}
+
+export function originMatchesAuthorizedDomains(originValue, allowedValue) {
+  const origin = normalizeOrigin(originValue);
+  if (!origin) return false;
+
+  let url;
+  try {
+    url = new URL(origin);
+  } catch {
+    return false;
+  }
+
+  const allowed = parseAuthorizedDomains(allowedValue);
+  return allowed.some((item) => {
+    if (item.wildcard) {
+      return url.hostname === item.hostname || url.hostname.endsWith(`.${item.hostname}`);
+    }
+    return item.origin === origin;
+  });
+}
+
+
 export function jidToPhone(jid) {
   const raw = String(jid || '').split('@')[0];
   return normalizePhone(raw);

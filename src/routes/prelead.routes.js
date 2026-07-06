@@ -1,10 +1,65 @@
 import express from 'express';
 import { db } from '../lib/db.js';
-import { cleanString, getClientIp, normalizePhone, nowIso, publicCode, extractLeadCode } from '../lib/utils.js';
+import {
+  cleanString,
+  getClientIp,
+  normalizePhone,
+  nowIso,
+  publicCode,
+  extractLeadCode,
+  normalizeOrigin,
+  parseAuthorizedDomains,
+  originMatchesAuthorizedDomains
+} from '../lib/utils.js';
 import { requireAuth } from '../middleware/auth.js';
 import { confirmPreleadByCode, registerIncomingWhatsAppMessage } from '../services/leadEvents.service.js';
 
 export const preleadRouter = express.Router();
+
+function getRequestOrigin(req) {
+  const origin = normalizeOrigin(req.headers.origin || '');
+  if (origin) return origin;
+
+  const referer = normalizeOrigin(req.headers.referer || '');
+  if (referer) return referer;
+
+  const landingOrigin = normalizeOrigin(req.body.landingOrigin || '');
+  if (landingOrigin) return landingOrigin;
+
+  return normalizeOrigin(req.body.landingUrl || '');
+}
+
+function validateProjectLandingOrigin(project, req) {
+  const allowedDomains = parseAuthorizedDomains(project.domain);
+  if (!allowedDomains.length) {
+    return {
+      ok: false,
+      status: 403,
+      error: 'Este proyecto no tiene dominios autorizados. Agregá el dominio de la landing en el proyecto.'
+    };
+  }
+
+  const requestOrigin = getRequestOrigin(req);
+  if (!requestOrigin) {
+    return {
+      ok: false,
+      status: 403,
+      error: 'No se pudo verificar el dominio de origen de la landing.'
+    };
+  }
+
+  if (!originMatchesAuthorizedDomains(requestOrigin, project.domain)) {
+    return {
+      ok: false,
+      status: 403,
+      origin: requestOrigin,
+      allowedDomains: allowedDomains.map((item) => item.raw),
+      error: `Dominio no autorizado para este proyecto: ${requestOrigin}. Agregalo en el campo Dominios autorizados del proyecto.`
+    };
+  }
+
+  return { ok: true, origin: requestOrigin };
+}
 
 function generateUniqueLeadCode() {
   for (let i = 0; i < 20; i++) {
@@ -65,6 +120,15 @@ preleadRouter.post('/preleads', async (req, res) => {
     return res.status(404).json({ error: 'Proyecto no encontrado o inactivo.' });
   }
 
+  const originValidation = validateProjectLandingOrigin(project, req);
+  if (!originValidation.ok) {
+    return res.status(originValidation.status || 403).json({
+      error: originValidation.error,
+      origin: originValidation.origin,
+      allowedDomains: originValidation.allowedDomains
+    });
+  }
+
   const whatsapp = getProjectWhatsapp(project);
   if (!whatsapp.number) {
     return res.status(400).json({ error: 'Este proyecto todavía no tiene WhatsApp vinculado por QR.' });
@@ -83,6 +147,7 @@ preleadRouter.post('/preleads', async (req, res) => {
     status: 'intent',
     metaStatus: 'pending',
     landingUrl: cleanString(req.body.landingUrl || req.headers.referer || '', 500),
+    landingOrigin: originValidation.origin,
     visitorId: cleanString(req.body.visitorId, 120),
     buttonSource: cleanString(req.body.buttonSource || req.body.source, 120),
     messageTemplate: cleanString(req.body.messageTemplate || req.body.message, 700),
@@ -120,7 +185,8 @@ preleadRouter.post('/preleads', async (req, res) => {
     project: {
       name: project.name,
       publicId: project.publicId
-    }
+    },
+    landingOrigin: originValidation.origin
   });
 });
 

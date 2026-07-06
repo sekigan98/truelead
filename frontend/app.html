@@ -170,9 +170,9 @@
           </div>
           <aside class="panel">
             <h2>SDK para landing</h2>
-            <p class="muted">Creá un proyecto y copiá el snippet que aparece en su tarjeta.</p>
+            <p class="muted">Creá un proyecto, cargá sus dominios autorizados y copiá el snippet que aparece en su tarjeta.</p>
             <div class="notice">
-              El botón de la landing debe tener <strong>data-truelead-whatsapp</strong>.
+              El botón de la landing debe tener <strong>data-truelead-whatsapp</strong>. El SDK solo funciona desde los dominios autorizados en el proyecto.
             </div>
           </aside>
         </div>
@@ -384,7 +384,10 @@
       <form class="form" data-project-form>
         <label><span>Cliente</span><select name="clientId" required data-client-select></select></label>
         <label><span>Nombre del proyecto</span><input name="name" required placeholder="Landing Junio" /></label>
-        <label><span>Dominio de landing</span><input name="domain" placeholder="https://cliente.com" /></label>
+        <label><span>Dominios autorizados de landing</span><textarea name="domain" rows="4" placeholder="https://cliente.com
+https://www.cliente.com
+https://cliente.vercel.app"></textarea></label>
+        <div class="notice">Podés cargar uno o varios dominios, separados por salto de línea, coma o espacio. TrueLead solo creará leads si el click viene de uno de estos dominios.</div>
         <label>
           <span>WhatsApp vinculado</span>
           <select name="whatsappSessionId" required data-whatsapp-session-select></select>

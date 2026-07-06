@@ -345,3 +345,18 @@ CORS_ORIGIN=https://app.truelead.com.ar,https://truelead.com.ar,https://www.true
 ```
 
 No hace falta agregar cada landing a `CORS_ORIGIN` para crear preleads, porque `/api/preleads` es el endpoint público del SDK.
+
+## Dominios autorizados por proyecto
+
+El campo **Dominios autorizados de landing** del proyecto ahora funciona como whitelist real del SDK.
+Podés cargar uno o varios dominios separados por salto de línea, coma, punto y coma o espacio, por ejemplo:
+
+```txt
+https://youwin-psi.vercel.app
+https://cliente.com
+https://www.cliente.com
+*.cliente.com
+```
+
+Cuando una landing llama a `POST /api/preleads`, TrueLead verifica el `Origin`/`Referer` contra esos dominios.
+Si el dominio no coincide, no crea el prelead ni genera código TL. Esto permite usar el SDK en landings externas sin editar `CORS_ORIGIN` en Render para cada cliente.

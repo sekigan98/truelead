@@ -43,6 +43,7 @@
       body: JSON.stringify({
         projectPublicId,
         landingUrl: location.href,
+        landingOrigin: location.origin,
         visitorId: getVisitorId(),
         buttonSource,
         messageTemplate,
@@ -52,7 +53,10 @@
       })
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || 'No se pudo crear el lead.');
+    if (!response.ok) {
+      const details = data.origin ? ` (${data.origin})` : '';
+      throw new Error((data.error || 'No se pudo crear el lead.') + details);
+    }
     return data;
   }
 
