@@ -317,3 +317,31 @@ Ejemplo de botón para landing:
 ```
 
 El texto `{{code}}` se reemplaza automáticamente por el código real generado para esa persona.
+
+
+## Fix SDK externo / landings
+
+Esta versión permite que el SDK de TrueLead se cargue desde landings externas, por ejemplo:
+
+```html
+<script
+  src="https://app.truelead.com.ar/sdk/truelead.js"
+  data-project="tl_xxxxx"
+  data-api="https://app.truelead.com.ar">
+</script>
+```
+
+Cambios técnicos:
+- `Cross-Origin-Resource-Policy` queda en `cross-origin`.
+- `/sdk/*` responde con headers públicos.
+- `/api/preleads` acepta CORS desde landings externas.
+- El panel y endpoints privados siguen usando `CORS_ORIGIN`.
+
+Para URLs públicas propias, mantener en Render:
+
+```env
+APP_URL=https://app.truelead.com.ar
+CORS_ORIGIN=https://app.truelead.com.ar,https://truelead.com.ar,https://www.truelead.com.ar
+```
+
+No hace falta agregar cada landing a `CORS_ORIGIN` para crear preleads, porque `/api/preleads` es el endpoint público del SDK.

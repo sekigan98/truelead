@@ -27,16 +27,73 @@ const corsOrigins = (process.env.CORS_ORIGIN || process.env.APP_URL || 'http://l
   .map((v) => v.trim())
   .filter(Boolean);
 
+function isAllowedOrigin(origin) {
+  if (!origin) return true;
+  if (corsOrigins.includes('*') || corsOrigins.includes(origin)) return true;
+  return false;
+}
+
+function isPublicEmbedPath(req) {
+  return (
+    req.path === '/api/preleads' ||
+    req.path.startsWith('/api/public') ||
+    req.path.startsWith('/sdk/')
+  );
+}
+
+/*
+  TrueLead se usa embebido en landings externas.
+  Helmet por defecto agrega Cross-Origin-Resource-Policy: same-origin, lo que bloquea
+  <script src="https://app.truelead.com.ar/sdk/truelead.js"> desde otra landing.
+  Por eso lo dejamos en cross-origin y además agregamos headers explícitos al SDK.
+*/
 app.use(helmet({
-  contentSecurityPolicy: false
+  contentSecurityPolicy: false,
+  crossOriginResourcePolicy: { policy: 'cross-origin' }
 }));
-app.use(cors({
-  origin(origin, cb) {
-    if (!origin || corsOrigins.includes(origin) || corsOrigins.includes('*')) return cb(null, true);
-    return cb(null, false);
-  },
-  credentials: true
+
+app.use((req, res, next) => {
+  if (req.path.startsWith('/sdk/')) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
+    res.setHeader('X-TrueLead-SDK', 'public');
+  }
+  next();
+});
+
+/*
+  - Panel/app/admin: solo orígenes permitidos en CORS_ORIGIN.
+  - SDK/preleads/pricing: deben poder ser llamados desde landings externas.
+*/
+app.use(cors((req, callback) => {
+  const origin = req.header('Origin');
+  const isPublic = isPublicEmbedPath(req);
+  const allowed = isPublic || isAllowedOrigin(origin);
+
+  callback(null, {
+    origin: allowed ? (origin || true) : false,
+    credentials: !isPublic,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-TrueLead-Project'],
+    maxAge: 86400
+  });
 }));
+
+app.options('*', cors((req, callback) => {
+  const origin = req.header('Origin');
+  const isPublic = isPublicEmbedPath(req);
+  const allowed = isPublic || isAllowedOrigin(origin);
+
+  callback(null, {
+    origin: allowed ? (origin || true) : false,
+    credentials: !isPublic,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-TrueLead-Project'],
+    maxAge: 86400
+  });
+}));
+
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
@@ -57,8 +114,15 @@ app.use('/api/admin', adminRouter);
 app.use('/api/whatsapp', whatsappRouter);
 
 app.use('/sdk', express.static(path.join(frontendDir, 'sdk'), {
-  maxAge: process.env.NODE_ENV === 'production' ? '1h' : 0
+  maxAge: process.env.NODE_ENV === 'production' ? '1h' : 0,
+  setHeaders(res) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+  }
 }));
+
 app.use(express.static(frontendDir));
 
 app.get('*', (req, res) => {
