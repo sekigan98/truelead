@@ -20,13 +20,13 @@
       </a>
 
       <nav class="side-nav">
-        <button data-tab="overview" class="active">Resumen</button>
-        <button data-tab="clients">Clientes</button>
-        <button data-tab="projects">Proyectos</button>
-        <button data-tab="leads">Leads</button>
-        <button data-tab="purchases">Comprobantes</button>
+        <button data-tab="overview" class="active"><span class="nav-ico">⌁</span><span>Resumen</span></button>
+        <button data-tab="clients"><span class="nav-ico">◎</span><span>Clientes</span></button>
+        <button data-tab="projects"><span class="nav-ico">▦</span><span>Proyectos</span></button>
+        <button data-tab="leads"><span class="nav-ico">↗</span><span>Leads</span></button>
+        <button data-tab="purchases"><span class="nav-ico">◇</span><span>Comprobantes</span></button>
         <button data-tab="whatsapp"><span class="pill">QR</span><span>WhatsApp</span></button>
-        <button data-tab="billing">Mi plan</button>
+        <button data-tab="billing"><span class="nav-ico">★</span><span>Mi plan</span></button>
         <a data-admin-link class="hidden" href="/admin">Panel admin</a>
       </nav>
 
@@ -69,37 +69,37 @@
       <section data-panel="overview" class="panel-section">
         <div class="metrics metric-strip overview-metrics">
           <article class="metric">
-            <label>Clientes</label>
+            <div class="metric-top"><label>Clientes</label><span class="metric-icon">👥</span></div>
             <strong data-metric="clients">0</strong>
             <small>Activos en la agencia</small>
           </article>
           <article class="metric">
-            <label>Proyectos</label>
+            <div class="metric-top"><label>Proyectos</label><span class="metric-icon">▣</span></div>
             <strong data-metric="projects">0</strong>
             <small>Landings trackeadas</small>
           </article>
           <article class="metric">
-            <label>Clicks / intents</label>
+            <div class="metric-top"><label>Clicks / intents</label><span class="metric-icon">↗</span></div>
             <strong data-metric="clicks">0</strong>
             <small>Preleads creados</small>
           </article>
           <article class="metric">
-            <label>Leads reales</label>
+            <div class="metric-top"><label>Leads reales</label><span class="metric-icon">✓</span></div>
             <strong data-metric="confirmed">0</strong>
             <small data-metric="conversionRate">0% confirmación</small>
           </article>
           <article class="metric">
-            <label>Mensajes entrantes</label>
+            <div class="metric-top"><label>Mensajes entrantes</label><span class="metric-icon">✉</span></div>
             <strong data-metric="totalIncomingMessages">0</strong>
             <small>WhatsApps recibidos en el período</small>
           </article>
           <article class="metric">
-            <label>Comprobantes</label>
+            <div class="metric-top"><label>Comprobantes</label><span class="metric-icon">◆</span></div>
             <strong data-metric="paymentProofs">0</strong>
             <small data-metric="purchasesConfirmed">0 compras validadas</small>
           </article>
           <article class="metric">
-            <label>% ventas</label>
+            <div class="metric-top"><label>% ventas</label><span class="metric-icon">%</span></div>
             <strong data-metric="salesConversionRate">0%</strong>
             <small>Compras / leads reales</small>
           </article>
@@ -108,7 +108,7 @@
         <div class="content-grid overview-grid">
           <div class="panel">
             <div class="panel-head">
-              <h2>Leads recientes</h2>
+              <div><h2>Leads recientes</h2><p class="panel-subtitle">Últimas conversaciones detectadas por código TL.</p></div>
               <button class="btn btn-secondary btn-small" data-tab-shortcut="leads">Ver todos</button>
             </div>
             <div class="table-wrap">
@@ -135,7 +135,7 @@
 
           <aside class="panel wa-box">
             <div class="panel-head">
-              <h2>WhatsApp</h2>
+              <div><h2>WhatsApp</h2><p class="panel-subtitle">Estado del número conectado por QR.</p></div>
               <span data-wa-status class="status pending">Cargando</span>
             </div>
             <div class="qr-large" data-wa-qr-box></div>

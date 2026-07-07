@@ -203,7 +203,7 @@ function leadRow(lead) {
   const purchaseRate = lead.purchaseRate ?? 0;
   return `
     <tr>
-      <td><strong>${escapeHtml(lead.code)}</strong></td>
+      <td><div class="lead-code"><strong>${escapeHtml(lead.code)}</strong><span>${escapeHtml(lead.source || lead.buttonSource || lead.originButton || "landing")}</span></div></td>
       <td>${leadPhoneCell(lead)}</td>
       <td>${escapeHtml(lead.client || '-')}</td>
       <td>${escapeHtml(lead.project || '-')}</td>
@@ -258,7 +258,7 @@ function renderLeads() {
   document.querySelector('[data-recent-leads]').innerHTML = recent.length
     ? recent.slice(0, 8).map((lead) => `
       <tr>
-        <td><strong>${escapeHtml(lead.code)}</strong></td>
+        <td><div class="lead-code"><strong>${escapeHtml(lead.code)}</strong><span>${escapeHtml(lead.source || lead.buttonSource || lead.originButton || "landing")}</span></div></td>
         <td>${leadPhoneCell(lead)}</td>
         <td>${escapeHtml(lead.client || '-')}</td>
         <td>${escapeHtml(lead.project || '-')}</td>
