@@ -1375,3 +1375,164 @@ tbody tr + tr td {
     font-size: .86rem;
   }
 }
+
+
+/* Mobile navigation fix: menu should not cover the panel */
+@media (max-width: 900px) {
+  html, body {
+    overflow-x: hidden;
+  }
+
+  .dashboard-shell,
+  .app-shell {
+    width: 100%;
+    max-width: 100%;
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+    padding: 10px !important;
+  }
+
+  .app-sidebar,
+  .sidebar {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    right: auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    z-index: 1 !important;
+    border-radius: 20px !important;
+    padding: 12px !important;
+  }
+
+  .app-sidebar .brand {
+    padding: 4px 4px 10px !important;
+  }
+
+  .app-sidebar .brand img {
+    width: 38px;
+    height: 38px;
+  }
+
+  .side-nav {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    gap: 8px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    padding: 2px 2px 8px !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .side-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .side-nav button,
+  .side-nav a {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: max-content !important;
+    min-height: 40px !important;
+    padding: 10px 12px !important;
+    border-radius: 14px !important;
+    font-size: .86rem !important;
+    white-space: nowrap !important;
+  }
+
+  .side-nav .nav-ico {
+    width: 24px;
+    height: 24px;
+    flex-basis: 24px;
+    border-radius: 9px;
+  }
+
+  .side-nav .pill {
+    padding: 4px 8px;
+    font-size: .7rem;
+  }
+
+  .sidebar-bottom {
+    margin-top: 8px !important;
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+
+  .sidebar-bottom .soft {
+    display: none;
+  }
+
+  .sidebar-bottom .btn-full {
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 40px !important;
+  }
+
+  .main {
+    width: 100%;
+    min-width: 0;
+    padding: 0 0 24px !important;
+  }
+
+  .premium-top {
+    margin-top: 0 !important;
+  }
+
+  .premium-top .top-actions {
+    grid-template-columns: 1fr 1fr !important;
+    align-items: center;
+  }
+
+  .premium-top .top-actions select,
+  .premium-top .top-actions input,
+  .premium-top .top-actions button {
+    width: 100%;
+    max-width: none !important;
+  }
+
+  .premium-top .user-chip {
+    display: none;
+  }
+
+  .content-grid,
+  .content-grid.overview-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .panel,
+  .wa-box {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 520px) {
+  .dashboard-shell,
+  .app-shell {
+    padding: 8px !important;
+  }
+
+  .premium-top {
+    padding: 18px !important;
+    border-radius: 20px !important;
+  }
+
+  .premium-top h1 {
+    font-size: 2.25rem !important;
+  }
+
+  .premium-top .top-actions {
+    grid-template-columns: 1fr !important;
+  }
+
+  .overview-metrics,
+  .metric-strip {
+    grid-template-columns: 1fr !important;
+  }
+
+  .table-wrap {
+    max-width: 100%;
+  }
+}

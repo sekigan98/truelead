@@ -945,3 +945,13 @@ setInterval(refreshLiveData, 3000);
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) refreshLiveData();
 });
+
+
+function scrollMainIntoViewOnMobile() {
+  if (window.innerWidth > 900) return;
+  const main = document.querySelector('.main');
+  if (!main) return;
+  setTimeout(() => {
+    main.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 80);
+}
