@@ -1,13 +1,13 @@
 const user = TrueLeadAPI.user();
 const messageBox = document.querySelector('[data-message]');
 
-if (!user) location.href = 'login.html';
+if (!user) location.href = '/login';
 if (user?.role === 'admin') document.querySelector('[data-admin-link]')?.classList.remove('hidden');
 
 document.querySelector('[data-user-initials]').textContent = (user?.name || 'TL').split(' ').map(x => x[0]).slice(0,2).join('').toUpperCase();
 document.querySelector('[data-logout]')?.addEventListener('click', () => {
   TrueLeadAPI.clearSession();
-  location.href = 'login.html';
+  location.href = '/login';
 });
 
 let state = {
@@ -505,7 +505,7 @@ async function loadAll() {
     renderWhatsapp();
   } catch (error) {
     TLUtils.showMessage(messageBox, error.message, 'error');
-    if (String(error.message).includes('No autenticado')) location.href = 'login.html';
+    if (String(error.message).includes('No autenticado')) location.href = '/login';
   }
 }
 
@@ -535,7 +535,7 @@ async function refreshLiveData() {
     renderPurchases();
     renderWhatsapp();
   } catch (error) {
-    if (String(error.message).includes('No autenticado')) location.href = 'login.html';
+    if (String(error.message).includes('No autenticado')) location.href = '/login';
   } finally {
     liveRefreshRunning = false;
   }

@@ -51,15 +51,15 @@ function trueLeadPageUrl(page) {
 }
 
 function trueLeadPanelUrl(role = 'agency') {
-  return trueLeadPageUrl(role === 'admin' ? 'admin.html' : 'app.html');
+  return trueLeadPageUrl(role === 'admin' ? 'admin' : 'panel');
 }
 
 function trueLeadLogoutUrl(redirectTo) {
   const defaultRedirect = trueLeadIsMarketingHost()
-    ? `${window.location.origin}/index.html`
-    : 'index.html';
+    ? `${window.location.origin}/`
+    : '/';
   const redirect = redirectTo || defaultRedirect;
-  return `${trueLeadPageUrl('logout.html')}?redirect=${encodeURIComponent(redirect)}`;
+  return `${trueLeadPageUrl('logout')}?redirect=${encodeURIComponent(redirect)}`;
 }
 
 function getTrueLeadCookie(name) {

@@ -12,9 +12,9 @@
   <link rel="icon" type="image/png" href="assets/logo.png" />
 </head>
 <body>
-  <div class="app-shell">
-    <aside class="sidebar glow">
-      <a class="brand" href="index.html">
+  <div class="app-shell dashboard-shell">
+    <aside class="sidebar glow app-sidebar">
+      <a class="brand" href="/">
         <img src="assets/logo.png" alt="TrueLead" />
         <span>TRUELEAD</span>
       </a>
@@ -27,7 +27,7 @@
         <button data-tab="purchases">Comprobantes</button>
         <button data-tab="whatsapp">WhatsApp <span class="pill">QR</span></button>
         <button data-tab="billing">Mi plan</button>
-        <a data-admin-link class="hidden" href="admin.html">Panel admin</a>
+        <a data-admin-link class="hidden" href="/admin">Panel admin</a>
       </nav>
 
       <div class="sidebar-bottom">
@@ -41,12 +41,13 @@
     </aside>
 
     <main class="main">
-      <header class="app-top">
-        <div>
+      <header class="app-top premium-top">
+        <div class="top-copy">
+          <span class="badge live-badge"><span></span> Tiempo real</span>
           <h1 data-title>Resumen</h1>
           <p class="muted" data-subtitle>Controlá leads reales, clientes y proyectos.</p>
         </div>
-        <div class="actions">
+        <div class="actions top-actions">
           <select data-range-filter style="max-width:150px">
             <option value="today">Hoy</option>
             <option value="week">Últimos 7 días</option>
@@ -64,8 +65,8 @@
       <div data-message class="notice hidden"></div>
       <div class="notice subtle" data-phone-policy style="margin-bottom:18px">Cargando permisos del plan...</div>
 
-      <section data-panel="overview">
-        <div class="metrics">
+      <section data-panel="overview" class="panel-section">
+        <div class="metrics metric-strip">
           <article class="metric">
             <label>Clientes</label>
             <strong data-metric="clients">0</strong>
@@ -146,7 +147,7 @@
         </div>
       </section>
 
-      <section data-panel="clients" class="hidden">
+      <section data-panel="clients" class="hidden panel-section">
         <div class="content-grid">
           <div class="panel">
             <div class="panel-head">
@@ -162,7 +163,7 @@
         </div>
       </section>
 
-      <section data-panel="projects" class="hidden">
+      <section data-panel="projects" class="hidden panel-section">
         <div class="content-grid">
           <div class="panel">
             <div class="panel-head">
@@ -181,7 +182,7 @@
         </div>
       </section>
 
-      <section data-panel="leads" class="hidden">
+      <section data-panel="leads" class="hidden panel-section">
         <div class="content-grid">
           <div class="panel">
             <div class="panel-head">
@@ -254,7 +255,7 @@
       </section>
 
 
-      <section data-panel="purchases" class="hidden">
+      <section data-panel="purchases" class="hidden panel-section">
         <div class="content-grid">
           <div class="panel">
             <div class="panel-head">
@@ -293,7 +294,7 @@
         </div>
       </section>
 
-      <section data-panel="whatsapp" class="hidden">
+      <section data-panel="whatsapp" class="hidden panel-section">
         <div class="content-grid">
           <div class="panel">
             <div class="panel-head">
@@ -342,7 +343,7 @@
         </div>
       </section>
 
-      <section data-panel="billing" class="hidden">
+      <section data-panel="billing" class="hidden panel-section">
         <div class="content-grid">
           <div class="panel">
             <div class="panel-head">

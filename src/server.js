@@ -113,6 +113,49 @@ app.use('/api/agency', agencyRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/whatsapp', whatsappRouter);
 
+
+const cleanPageRoutes = new Map([
+  ['/login', 'login.html'],
+  ['/register', 'register.html'],
+  ['/verify-email', 'verify-email.html'],
+  ['/logout', 'logout.html'],
+  ['/connect', 'connect.html'],
+  ['/admin-login', 'admin-login.html'],
+  ['/panel', 'app.html'],
+  ['/app', 'app.html'],
+  ['/admin', 'admin.html']
+]);
+
+const htmlRedirects = new Map([
+  ['/index.html', '/'],
+  ['/login.html', '/login'],
+  ['/register.html', '/register'],
+  ['/verify-email.html', '/verify-email'],
+  ['/logout.html', '/logout'],
+  ['/connect.html', '/connect'],
+  ['/admin-login.html', '/admin-login'],
+  ['/app.html', '/panel'],
+  ['/admin.html', '/admin']
+]);
+
+app.use((req, res, next) => {
+  if (req.path.length > 1 && req.path.endsWith('/') && !req.path.startsWith('/api/')) {
+    const query = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    return res.redirect(301, `${req.path.slice(0, -1)}${query}`);
+  }
+
+  const cleanTarget = htmlRedirects.get(req.path);
+  if (!cleanTarget) return next();
+  const query = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+  return res.redirect(301, `${cleanTarget}${query}`);
+});
+
+for (const [routePath, fileName] of cleanPageRoutes.entries()) {
+  app.get(routePath, (req, res) => {
+    res.sendFile(path.join(frontendDir, fileName));
+  });
+}
+
 app.use('/sdk', express.static(path.join(frontendDir, 'sdk'), {
   maxAge: process.env.NODE_ENV === 'production' ? '1h' : 0,
   setHeaders(res) {

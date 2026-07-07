@@ -24,7 +24,24 @@ function makeChip(text) {
   return chip;
 }
 
+function normalizeMarketingAuthLinks() {
+  if (!TrueLeadAPI.isMarketingHost?.()) return;
+
+  document.querySelectorAll('a[href="/login"], a[href="login"], a[href="login.html"]').forEach((link) => {
+    link.href = TrueLeadAPI.pageUrl('login');
+  });
+
+  document.querySelectorAll('a[href="/register"], a[href="register"], a[href="register.html"]').forEach((link) => {
+    link.href = TrueLeadAPI.pageUrl('register');
+  });
+
+  document.querySelectorAll('a[href="/admin-login"], a[href="admin-login"], a[href="admin-login.html"]').forEach((link) => {
+    link.href = TrueLeadAPI.pageUrl('admin-login');
+  });
+}
+
 function hydrateSessionLinks() {
+  normalizeMarketingAuthLinks();
   const localUser = TrueLeadAPI.user();
   const hint = TrueLeadAPI.sessionHint?.() || {};
   const isLogged = Boolean((localUser && TrueLeadAPI.token()) || hint.loggedIn);
@@ -38,12 +55,12 @@ function hydrateSessionLinks() {
   const panelText = role === 'admin' ? 'Ver admin' : 'Ver panel';
   const chipText = agencyPlan ? `${userName} · ${agencyPlan}` : userName;
 
-  document.querySelectorAll('a[href="login.html"], a[href="app.html"], a[href="admin.html"]').forEach((link) => {
+  document.querySelectorAll('a[href="/login"], a[href="login"], a[href="login.html"], a[href="/panel"], a[href="panel"], a[href="app.html"], a[href="/admin"], a[href="admin"], a[href="admin.html"]').forEach((link) => {
     link.href = panelHref;
     link.textContent = panelText;
   });
 
-  document.querySelectorAll('a[href="register.html"]').forEach((link) => {
+  document.querySelectorAll('a[href="/register"], a[href="register"], a[href="register.html"]').forEach((link) => {
     link.href = panelHref;
     if (/crear|empezar|escalar|contactar/i.test(link.textContent || '')) {
       link.textContent = panelText;

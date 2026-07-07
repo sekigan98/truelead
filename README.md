@@ -372,3 +372,18 @@ Si el dominio no coincide, no crea el prelead ni genera código TL. Esto permite
 - La home detecta sesión activa por localStorage/cookie y reemplaza Iniciar sesión/Crear cuenta por Ver panel/Cerrar sesión.
 - Se agregó logout.html para limpiar sesión en app.truelead.com.ar y cookies compartidas del dominio.
 - Login/Register redirigen al panel si ya hay sesión activa guardada.
+
+
+## URLs limpias
+
+Este build sirve rutas limpias desde Express:
+
+- `/` → home pública
+- `/login` → login agencia
+- `/register` → registro
+- `/panel` → panel agencia
+- `/admin` → backoffice
+- `/admin-login` → login admin
+- `/logout` → cierre de sesión
+
+Las URLs viejas con `.html` redirigen automáticamente a su equivalente limpio.

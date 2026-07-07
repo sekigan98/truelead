@@ -2,13 +2,13 @@
 const user = TrueLeadAPI.user();
 const messageBox = document.querySelector('[data-message]');
 
-if (!user) location.href = 'admin-login.html';
-if (user?.role !== 'admin') location.href = 'app.html';
+if (!user) location.href = '/admin-login';
+if (user?.role !== 'admin') location.href = '/panel';
 
 document.querySelector('[data-admin-name]').textContent = user.name || 'Admin';
 document.querySelector('[data-logout]')?.addEventListener('click', () => {
   TrueLeadAPI.clearSession();
-  location.href = 'admin-login.html';
+  location.href = '/admin-login';
 });
 
 let adminState = { overview: null, agencies: [], pricing: null };

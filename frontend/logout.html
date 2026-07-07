@@ -10,7 +10,7 @@
 <body>
   <main class="auth-page">
     <section class="auth-card">
-      <a class="brand" href="index.html">
+      <a class="brand" href="/">
         <img src="assets/logo.png" alt="TrueLead" />
         <span>TRUELEAD</span>
       </a>
@@ -23,13 +23,13 @@
   <script>
     (function () {
       function safeRedirectTarget(value) {
-        if (!value) return 'login.html';
+        if (!value) return '/login';
         try {
           const url = new URL(value, window.location.origin);
           const allowedHosts = new Set(['truelead.com.ar', 'www.truelead.com.ar', 'app.truelead.com.ar', window.location.hostname]);
-          return allowedHosts.has(url.hostname) ? url.href : 'login.html';
+          return allowedHosts.has(url.hostname) ? url.href : '/login';
         } catch (error) {
-          return 'login.html';
+          return '/login';
         }
       }
 

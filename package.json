@@ -1,7 +1,7 @@
 {
   "name": "truelead-functional",
-  "version": "1.4.0",
-  "description": "TrueLead SaaS with multi-client WhatsApp sessions, linked projects, automated lead codes, purchases and analytics.",
+  "version": "1.4.1",
+  "description": "TrueLead SaaS with clean URLs, premium dashboard UI, QR WhatsApp sessions and real lead tracking.",
   "main": "src/server.js",
   "type": "module",
   "scripts": {

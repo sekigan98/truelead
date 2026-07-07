@@ -118,7 +118,7 @@ function agencyUsers(agencyId) {
 }
 
 export async function sendVerificationEmail({ agency, user, token }) {
-  const verifyUrl = `${baseUrl()}/verify-email.html?token=${encodeURIComponent(token)}`;
+  const verifyUrl = `${baseUrl()}/verify-email?token=${encodeURIComponent(token)}`;
   await sendTrueLeadEmail({
     to: user.email,
     type: 'email_verification',
@@ -149,7 +149,7 @@ export async function sendVerificationEmail({ agency, user, token }) {
 }
 
 export async function sendWelcomeEmail({ agency, user }) {
-  const appUrl = `${baseUrl()}/login.html`;
+  const appUrl = `${baseUrl()}/login`;
   return sendTrueLeadEmail({
     to: user.email,
     type: 'account_activated_trial',
