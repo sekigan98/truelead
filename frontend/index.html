@@ -1,29 +1,28 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TrueLead — No midas clicks. Medí leads reales.</title>
-  <meta name="description" content="TrueLead mide leads reales de WhatsApp para agencias y envía conversiones confirmadas a Meta." />
+  <title>TrueLead — Leads reales de WhatsApp para Meta Ads</title>
+  <meta name="description" content="TrueLead confirma leads reales cuando una persona escribe por WhatsApp con código TL. Menos clicks inflados, más señales útiles para Meta Ads." />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/styles.css" />
   <link rel="icon" type="image/png" href="assets/logo.png" />
 </head>
-<body>
-  <header class="header">
+<body class="marketing-page">
+  <header class="header marketing-header">
     <div class="container header-inner">
       <a class="brand" href="index.html">
         <img src="assets/logo.png" alt="TrueLead" />
         <span>TRUELEAD</span>
       </a>
       <nav class="nav">
-        <a href="#features">Características</a>
+        <a href="#problem">Problema</a>
         <a href="#how">Cómo funciona</a>
+        <a href="#features">Características</a>
         <a href="#pricing">Precios</a>
-        <a href="login.html">Panel</a>
       </nav>
       <div class="actions">
         <a class="btn btn-ghost" href="login.html">Iniciar sesión</a>
@@ -33,137 +32,171 @@
   </header>
 
   <main>
-    <section class="container hero">
-      <div>
-        <span class="badge">⚡ Hecho para agencias y negocios</span>
-        <h1>No midas clicks.<br><span>Medí leads reales.</span></h1>
+    <section class="container hero tl-hero">
+      <div class="tl-hero-copy">
+        <span class="badge">WhatsApp + Meta CAPI + leads reales</span>
+        <h1>Dejá de optimizar por clicks. <span>Medí quién escribe.</span></h1>
         <p>
-          TrueLead conecta tus campañas con WhatsApp, identifica conversaciones reales
-          con códigos únicos y manda a Meta solo clientes potenciales que efectivamente escribieron.
-          Menos señales falsas, bases más limpias y campañas más rentables.
+          TrueLead une cada click de tu landing con un código único, escucha el WhatsApp vinculado
+          y confirma como Lead solo a la persona que realmente mandó el mensaje.
         </p>
         <div class="hero-actions">
-          <a class="btn btn-primary" href="register.html">Empezar ahora</a>
-          <a class="btn btn-secondary" href="login.html">Entrar al panel</a>
+          <a class="btn btn-primary" href="register.html">Crear cuenta gratis</a>
+          <a class="btn btn-secondary" href="#how">Ver cómo funciona</a>
         </div>
         <ul class="mini-list">
-          <li>Sin tarjeta de crédito</li>
-          <li>Instalación en minutos</li>
           <li>Lead real = mensaje recibido</li>
+          <li>Códigos TL por click</li>
+          <li>Eventos server-side a Meta</li>
         </ul>
       </div>
 
-      <div>
-        <div class="card hero-card">
-          <div class="panel-head">
-            <div class="brand small">
-              <img src="assets/logo.png" alt="TrueLead" />
-              <span>Resumen general</span>
-            </div>
-            <span class="pill">Últimos 30 días</span>
+      <div class="tl-hero-visual">
+        <div class="tl-phone-card glow">
+          <div class="phone-top">
+            <span></span><span></span><span></span>
           </div>
-
-          <div class="mock-row">
-            <div class="soft mock-metric">
-              <small>Leads reales</small>
-              <strong>248</strong>
-              <small class="tag green">+32.6%</small>
+          <div class="lead-feed-card active">
+            <div class="avatar">M</div>
+            <div>
+              <strong>Mensaje confirmado</strong>
+              <small>TL-8JH42K · WhatsApp recibido</small>
             </div>
-            <div class="soft mock-metric">
-              <small>Confirmados</small>
+            <em>Lead</em>
+          </div>
+          <div class="lead-feed-card">
+            <div class="avatar blue">A</div>
+            <div>
+              <strong>Click en landing</strong>
+              <small>Código creado, esperando mensaje</small>
+            </div>
+            <em>Intent</em>
+          </div>
+          <div class="lead-feed-card proof">
+            <div class="avatar green">PDF</div>
+            <div>
+              <strong>Comprobante detectado</strong>
+              <small>Foto / PDF / documento</small>
+            </div>
+            <em>Proof</em>
+          </div>
+          <div class="phone-bottom">
+            <div>
               <strong>182</strong>
-              <small class="tag green">+28.4%</small>
+              <small>leads reales</small>
             </div>
-            <div class="soft mock-metric">
-              <small>Conversión</small>
+            <div>
               <strong>73.4%</strong>
-              <small class="tag green">+12.7%</small>
-            </div>
-            <div class="soft mock-metric">
-              <small>Enviados a Meta</small>
-              <strong>182</strong>
-              <small class="tag green">+28.4%</small>
-            </div>
-          </div>
-
-          <div class="mock-chart soft">
-            <div class="qr-mini glow">
-              <strong>Conectá WhatsApp</strong>
-              <div class="qr"></div>
-              <small>Escaneá para empezar</small>
+              <small>confirmación</small>
             </div>
           </div>
         </div>
 
-        <div class="compare glow">
-          <div>
-            <strong>10,486</strong>
-            <span class="muted">Clicks recibidos</span>
-            <small class="muted">Costosos e imprecisos</small>
-          </div>
-          <div class="vs">VS</div>
-          <div>
-            <strong class="blue-text">248</strong>
-            <span class="muted">Leads reales</span>
-            <small class="muted">Medibles y rentables</small>
-          </div>
+        <div class="tl-floating tl-float-1">
+          <span class="dot green-dot"></span>
+          <strong>Meta recibe Lead</strong>
+          <small>solo cuando escribe</small>
+        </div>
+        <div class="tl-floating tl-float-2">
+          <strong>10,486 clicks</strong>
+          <small>vs 248 leads reales</small>
         </div>
       </div>
     </section>
 
-    <section class="section container" id="how">
-      <div class="section-head">
-        <span class="badge">Cómo funciona</span>
-        <h2>De click a conversación real, sin inflar clientes potenciales</h2>
+    <section class="section container" id="problem">
+      <div class="section-head center">
+        <span class="badge">Por qué falla la medición</span>
+        <h2>Meta puede contar “clientes potenciales” que nunca hablaron.</h2>
+        <p class="muted narrow">Si el evento Lead sale del click, terminás entrenando campañas con gente que abrió WhatsApp, cerró la app o nunca envió el mensaje.</p>
       </div>
-      <div class="grid-3">
-        <article class="card step">
-          <div class="step-num">1</div>
-          <h3>Conectás WhatsApp</h3>
-          <p class="muted">Vinculá el número del cliente por QR y empezá a trackear.</p>
+      <div class="grid-3 problem-grid">
+        <article class="card feature">
+          <span class="problem-icon">01</span>
+          <h3>Clicks inflados</h3>
+          <p class="muted">El botón se toca, pero muchas personas no envían nada. Igual pueden contaminar la optimización.</p>
         </article>
-        <article class="card step">
-          <div class="step-num">2</div>
-          <h3>Detectamos el código</h3>
-          <p class="muted">Cada landing genera un código único para unir click, campaña y conversación.</p>
+        <article class="card feature">
+          <span class="problem-icon">02</span>
+          <h3>WhatsApp no confirma intención</h3>
+          <p class="muted">Abrir WhatsApp no es lo mismo que iniciar una conversación real con el negocio.</p>
         </article>
-        <article class="card step">
-          <div class="step-num">3</div>
-          <h3>Enviamos a Meta</h3>
-          <p class="muted">Solo cuando llega el mensaje con código se dispara Lead por CAPI.</p>
+        <article class="card feature">
+          <span class="problem-icon">03</span>
+          <h3>Ventas difíciles de seguir</h3>
+          <p class="muted">Los comprobantes quedan en el chat y no siempre vuelven al reporte de la agencia.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section container solution-section" id="how">
+      <div class="section-head center">
+        <span class="badge">Simple y rápido</span>
+        <h2>Un flujo claro: landing, WhatsApp y Meta conectados.</h2>
+      </div>
+      <div class="steps-line">
+        <article class="step-card card">
+          <b>1</b>
+          <h3>Vinculás WhatsApp</h3>
+          <p class="muted">Escaneás QR y elegís qué número usará cada proyecto o cliente.</p>
+        </article>
+        <article class="step-card card">
+          <b>2</b>
+          <h3>Pegás el SDK</h3>
+          <p class="muted">El botón de la landing crea un código único TL por cada intento.</p>
+        </article>
+        <article class="step-card card">
+          <b>3</b>
+          <h3>TrueLead escucha</h3>
+          <p class="muted">Cuando entra el mensaje con código, el lead se confirma automáticamente.</p>
+        </article>
+        <article class="step-card card">
+          <b>4</b>
+          <h3>Meta aprende mejor</h3>
+          <p class="muted">Enviás eventos reales por CAPI, no señales vacías de click.</p>
         </article>
       </div>
     </section>
 
     <section class="section container" id="features">
-      <div class="section-head center">
-        <span class="badge">Características</span>
-        <h2>Diseñado para agencias que venden por WhatsApp</h2>
+      <div class="feature-split">
+        <div>
+          <span class="badge">Panel para agencias</span>
+          <h2>Cada código TL queda conectado al cliente, proyecto y WhatsApp.</h2>
+          <p class="muted">Ves intentos, leads reales, mensajes entrantes, comprobantes y ventas validadas. Si WhatsApp entrega LID en vez de teléfono, cargás el número manualmente y exportás la base limpia.</p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="register.html">Empezar a medir</a>
+            <a class="btn btn-secondary" href="login.html">Entrar al panel</a>
+          </div>
+        </div>
+        <div class="card mini-dashboard">
+          <div class="mini-stat"><span>Clicks / intents</span><strong>70</strong></div>
+          <div class="mini-stat good"><span>Leads reales</span><strong>20</strong></div>
+          <div class="mini-stat"><span>Comprobantes</span><strong>7</strong></div>
+          <div class="mini-stat good"><span>Enviados a Meta</span><strong>20</strong></div>
+          <div class="lead-feed-card active wide">
+            <div class="avatar green">TL</div>
+            <div>
+              <strong>TL-CYH4TW</strong>
+              <small>Mensaje recibido · Lead enviado a Meta</small>
+            </div>
+            <em>sent</em>
+          </div>
+        </div>
       </div>
-      <div class="grid-3">
+
+      <div class="grid-3 features-bottom">
         <article class="card feature">
-          <h3>Lead real por código TL</h3>
-          <p class="muted">El click crea un intento. El Lead se confirma recién cuando WhatsApp recibe el mensaje con código.</p>
+          <h3>Dominio autorizado por proyecto</h3>
+          <p class="muted">El SDK solo genera leads desde las landings autorizadas, sin tocar Render por cada cliente.</p>
         </article>
         <article class="card feature">
-          <h3>Teléfonos por plan</h3>
-          <p class="muted">Starter muestra últimos 4 dígitos, Pro ve números completos y Agency exporta bases.</p>
+          <h3>Teléfono editable</h3>
+          <p class="muted">No dependés de LID. Tocás “Agregar”, cargás el número real y tu base queda limpia.</p>
         </article>
         <article class="card feature">
-          <h3>Exportación Agency</h3>
-          <p class="muted">Descargá CSV/XLSX por fecha, leads reales, compradores o solo números confirmados.</p>
-        </article>
-        <article class="card feature">
-          <h3>Meta CAPI</h3>
-          <p class="muted">Mandá eventos server-side cuando el lead realmente escribió, no cuando solo tocó el botón.</p>
-        </article>
-        <article class="card feature">
-          <h3>Comprobantes</h3>
-          <p class="muted">Fotos, PDFs y documentos cuentan como comprobantes; stickers y GIFs quedan fuera.</p>
-        </article>
-        <article class="card feature">
-          <h3>Panel admin</h3>
-          <p class="muted">Validá agencias, pagos, planes y limpiá historial antes de entregar una cuenta.</p>
+          <h3>Comprobantes sin ruido</h3>
+          <p class="muted">Foto, PDF y documentos cuentan. Stickers y GIFs no inflan comprobantes.</p>
         </article>
       </div>
     </section>
@@ -171,18 +204,18 @@
     <section class="section container" id="pricing">
       <div class="section-head center">
         <span class="badge">Precios</span>
-        <h2>Planes simples para Argentina y exterior</h2>
-        <p class="muted" data-pricing-note>Detectamos tu ubicación para mostrar ARS o USD. El valor del dólar se actualiza desde Render con TRUELEAD_USD_ARS_RATE.</p>
+        <h2>Planes por cantidad de clientes, proyectos y WhatsApps.</h2>
+        <p class="muted" data-pricing-note>Detectamos tu ubicación para mostrar ARS o USD. El tipo de cambio se define desde Render con TRUELEAD_USD_ARS_RATE.</p>
       </div>
       <div class="pricing" data-pricing-grid>
         <article class="card price-card" data-price-plan="starter">
           <span class="pill" data-plan-name>Starter</span>
-          <h3 data-plan-title>Trial automático</h3>
+          <h3 data-plan-title>Para empezar</h3>
           <strong class="price" data-plan-price>...</strong>
           <ul data-plan-features>
-            <li>3 clientes</li>
-            <li>Confirmación manual</li>
-            <li>Reportes básicos</li>
+            <li>1 cliente</li>
+            <li>1 proyecto</li>
+            <li>1 WhatsApp</li>
           </ul>
           <a class="btn btn-secondary btn-full" href="register.html">Empezar</a>
         </article>
@@ -192,7 +225,7 @@
           <strong class="price" data-plan-price>...</strong>
           <ul data-plan-features>
             <li>10 clientes</li>
-            <li>Vinculación por QR</li>
+            <li>30 proyectos</li>
             <li>Meta CAPI</li>
           </ul>
           <a class="btn btn-primary btn-full" href="register.html">Crear cuenta</a>
@@ -202,9 +235,9 @@
           <h3 data-plan-title>Escala</h3>
           <strong class="price" data-plan-price>...</strong>
           <ul data-plan-features>
-            <li>Clientes avanzados</li>
-            <li>Múltiples WhatsApps</li>
-            <li>Exportación CSV/XLSX</li>
+            <li>50 clientes</li>
+            <li>150 proyectos</li>
+            <li>20 WhatsApps</li>
           </ul>
           <a class="btn btn-primary btn-full" href="register.html">Escalar</a>
         </article>
@@ -215,10 +248,47 @@
           <ul data-plan-features>
             <li>Operación personalizada</li>
             <li>Soporte dedicado</li>
-            <li>Exportación avanzada</li>
+            <li>Volumen flexible</li>
           </ul>
           <a class="btn btn-secondary btn-full" href="register.html">Contactar</a>
         </article>
+      </div>
+    </section>
+
+    <section class="section container faq-section">
+      <div class="section-head center">
+        <span class="badge">Preguntas frecuentes</span>
+        <h2>Lo importante, sin vueltas.</h2>
+      </div>
+      <div class="grid-2">
+        <article class="card feature">
+          <h3>¿El click cuenta como Lead?</h3>
+          <p class="muted">No. El click crea un intent. El Lead se confirma cuando entra el mensaje con código TL al WhatsApp vinculado.</p>
+        </article>
+        <article class="card feature">
+          <h3>¿Qué pasa si aparece LID?</h3>
+          <p class="muted">No lo usamos como teléfono. El lead queda sin número hasta que cargues el teléfono real manualmente.</p>
+        </article>
+        <article class="card feature">
+          <h3>¿Puedo usar varios dominios?</h3>
+          <p class="muted">Sí. Cada proyecto permite uno o varios dominios autorizados para el SDK.</p>
+        </article>
+        <article class="card feature">
+          <h3>¿Se manda Purchase a Meta?</h3>
+          <p class="muted">Por ahora el comprobante queda interno. Primero validás ventas; después se puede activar Purchase por CAPI.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="container final-cta glow">
+      <div>
+        <span class="badge">Listo para agencias</span>
+        <h2>Medí WhatsApp como corresponde.</h2>
+        <p class="muted">Menos leads falsos, mejores decisiones y una señal más limpia para Meta Ads.</p>
+      </div>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="register.html">Crear cuenta</a>
+        <a class="btn btn-secondary" href="login.html">Ir al panel</a>
       </div>
     </section>
   </main>

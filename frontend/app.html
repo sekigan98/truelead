@@ -114,7 +114,7 @@
                 <thead>
                   <tr>
                     <th>Código</th>
-                    <th>Teléfono</th>
+                    <th>Teléfono / base</th>
                     <th>Cliente</th>
                     <th>Proyecto</th>
                     <th>Estado</th>
@@ -192,7 +192,7 @@
                 <thead>
                   <tr>
                     <th>Código</th>
-                    <th>Teléfono</th>
+                    <th>Teléfono / base</th>
                     <th>Cliente</th>
                     <th>Proyecto</th>
                     <th>Estado</th>
@@ -210,8 +210,8 @@
           </div>
           <aside class="panel">
             <h2>Exportar base</h2>
-            <p class="muted">Usa el rango de fechas seleccionado arriba. Ideal para descargar números y armar base de datos.</p>
-            <div class="notice" data-export-note>Validando permisos del plan...</div>
+            <p class="muted">Usa el rango de fechas seleccionado arriba. Si WhatsApp muestra LID, tocá <strong>Agregar</strong> en el lead y cargá el teléfono real antes de descargar.</p>
+            <div class="notice" data-export-note>Exportación habilitada para todos los planes.</div>
             <form class="form" data-export-form>
               <label>
                 <span>Qué exportar</span>
@@ -433,6 +433,21 @@ https://cliente.vercel.app"></textarea></label>
         <div class="modal-actions">
           <button type="button" class="btn btn-secondary" data-close-modal>Cerrar</button>
           <button class="btn btn-primary" type="submit">Guardar proyecto</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" data-modal="lead-phone">
+    <div class="modal-card">
+      <h2 data-lead-phone-title>Agregar teléfono al lead</h2>
+      <form class="form" data-lead-phone-form>
+        <label><span>Código</span><input name="code" readonly /></label>
+        <label><span>Teléfono real</span><input name="phone" placeholder="5491123456789" inputmode="tel" /></label>
+        <div class="notice">Este número es manual y se usa para ver/exportar la base. No afecta la detección del código TL ni vuelve a enviar eventos a Meta.</div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" data-close-modal>Cerrar</button>
+          <button class="btn btn-primary" type="submit">Guardar teléfono</button>
         </div>
       </form>
     </div>

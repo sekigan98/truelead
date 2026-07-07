@@ -10,19 +10,20 @@ export const PLAN_DEFINITIONS = [
     whatsappLimit: 1,
     featured: false,
     capabilities: {
-      phoneVisibility: 'masked',
-      canViewFullPhones: false,
-      canExportLeads: false,
+      phoneVisibility: 'manual',
+      canViewFullPhones: true,
+      canExportLeads: true,
+      canEditLeadPhones: true,
       canUseMetaCapi: true,
       canUsePurchases: true,
-      exportLabel: 'Exportación disponible desde Agency'
+      exportLabel: 'Exportación incluida'
     },
     features: [
       '1 cliente',
       '1 proyecto / landing',
       '1 WhatsApp conectado',
-      'Teléfonos enmascarados: solo últimos 4 dígitos',
-      'Sin exportación CSV/XLSX',
+      'Teléfono editable manualmente por lead',
+      'Exportación CSV/XLSX incluida',
       'Leads reales y Meta CAPI'
     ]
   },
@@ -37,20 +38,21 @@ export const PLAN_DEFINITIONS = [
     whatsappLimit: 5,
     featured: true,
     capabilities: {
-      phoneVisibility: 'full',
+      phoneVisibility: 'manual',
       canViewFullPhones: true,
-      canExportLeads: false,
+      canExportLeads: true,
+      canEditLeadPhones: true,
       canUseMetaCapi: true,
       canUsePurchases: true,
-      exportLabel: 'Exportación CSV/XLSX disponible en Agency'
+      exportLabel: 'Exportación incluida'
     },
     features: [
       '10 clientes',
       '30 proyectos / landings',
       'Hasta 5 WhatsApps conectados',
-      'Teléfonos completos visibles en el panel',
+      'Teléfono editable manualmente por lead',
       'Meta Conversions API',
-      'Sin descarga CSV/XLSX'
+      'Exportación CSV/XLSX incluida'
     ]
   },
   {
@@ -74,7 +76,7 @@ export const PLAN_DEFINITIONS = [
       '50 clientes',
       '150 proyectos / landings',
       'Hasta 20 WhatsApps conectados',
-      'Teléfonos completos visibles',
+      'Teléfono editable manualmente por lead',
       'Exportación CSV/XLSX por fechas',
       'Soporte prioritario'
     ]
@@ -185,12 +187,13 @@ export function getPlanById(id) {
 export function getPlanCapabilities(id) {
   const plan = getPlanById(id);
   return {
-    phoneVisibility: 'masked',
-    canViewFullPhones: false,
-    canExportLeads: false,
+    phoneVisibility: 'manual',
+    canViewFullPhones: true,
+    canExportLeads: true,
+    canEditLeadPhones: true,
     canUseMetaCapi: false,
     canUsePurchases: true,
-    exportLabel: 'Exportación disponible desde Agency',
+    exportLabel: 'Exportación incluida',
     ...(plan.capabilities || {})
   };
 }

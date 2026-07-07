@@ -65,7 +65,19 @@ function sessionLabel(session) {
 }
 
 function leadPhone(lead) {
-  return lead.phoneDisplay || lead.whatsappFromPhone || lead.phone || (lead.whatsappFromLast4 ? `••••${lead.whatsappFromLast4}` : '-');
+  return lead.manualPhone || lead.phoneDisplay || lead.whatsappFromPhone || lead.phone || (lead.whatsappFromLast4 ? `••••${lead.whatsappFromLast4}` : '');
+}
+
+function leadPhoneCell(lead) {
+  const phone = leadPhone(lead);
+  const label = phone ? 'Editar' : 'Agregar';
+  const phoneText = phone ? escapeHtml(phone) : '<span class="muted">Sin teléfono</span>';
+  return `
+    <div class="phone-cell">
+      <strong>${phoneText}</strong>
+      <button type="button" class="mini-link" data-edit-lead-phone="${escapeHtml(lead.id)}">${label}</button>
+    </div>
+  `;
 }
 
 function planCapabilities() {
@@ -73,24 +85,22 @@ function planCapabilities() {
 }
 
 function canExportLeads() {
-  return Boolean(planCapabilities().canExportLeads);
+  return true;
 }
 
 function renderExportGate() {
   const capabilities = planCapabilities();
   const canExport = canExportLeads();
   document.querySelectorAll('[data-export-format]').forEach((button) => {
-    button.disabled = !canExport;
-    button.classList.toggle('is-disabled', !canExport);
-    button.title = canExport ? '' : (capabilities.exportLabel || 'Exportación disponible desde Agency');
+    button.disabled = false;
+    button.classList.remove('is-disabled');
+    button.title = '';
   });
 
   const note = document.querySelector('[data-export-note]');
   if (note) {
-    note.textContent = canExport
-      ? 'Exportación habilitada para tu plan. El archivo descarga teléfonos completos.'
-      : (capabilities.exportLabel || 'La exportación CSV/XLSX está disponible desde Agency.');
-    note.classList.toggle('success', canExport);
+    note.textContent = 'Exportación habilitada para todos los planes. Si WhatsApp entrega LID, usá Agregar/Editar para cargar el teléfono real antes de descargar la base.';
+    note.classList.add('success');
   }
 }
 
@@ -150,9 +160,7 @@ function renderMetrics() {
 
   const phonePolicy = document.querySelector('[data-phone-policy]');
   if (phonePolicy) {
-    phonePolicy.textContent = capabilities.canViewFullPhones
-      ? (capabilities.canExportLeads ? 'Teléfonos completos + exportación habilitada.' : 'Teléfonos completos visibles. Exportación disponible en Agency.')
-      : 'Starter: teléfonos enmascarados, solo últimos 4 dígitos.';
+    phonePolicy.textContent = 'Los teléfonos de leads son editables manualmente para evitar LID de WhatsApp. La exportación usa el número cargado/corregido.';
   }
 
   renderExportGate();
@@ -165,7 +173,7 @@ function leadRow(lead) {
   return `
     <tr>
       <td><strong>${escapeHtml(lead.code)}</strong></td>
-      <td><strong>${escapeHtml(leadPhone(lead))}</strong></td>
+      <td>${leadPhoneCell(lead)}</td>
       <td>${escapeHtml(lead.client || '-')}</td>
       <td>${escapeHtml(lead.project || '-')}</td>
       <td><span class="tag ${s}">${escapeHtml(lead.status || '-')}</span></td>
@@ -220,7 +228,7 @@ function renderLeads() {
     ? recent.slice(0, 8).map((lead) => `
       <tr>
         <td><strong>${escapeHtml(lead.code)}</strong></td>
-        <td><strong>${escapeHtml(leadPhone(lead))}</strong></td>
+        <td>${leadPhoneCell(lead)}</td>
         <td>${escapeHtml(lead.client || '-')}</td>
         <td>${escapeHtml(lead.project || '-')}</td>
         <td><span class="tag ${TLUtils.statusClass(lead.status)}">${escapeHtml(lead.status || '-')}</span></td>
@@ -234,6 +242,8 @@ function renderLeads() {
   document.querySelector('[data-leads-table]').innerHTML = state.leads.length
     ? state.leads.map(leadRow).join('')
     : '<tr><td colspan="11">Todavía no hay leads en este período.</td></tr>';
+
+  bindLeadPhoneButtons();
 }
 
 function renderClientSelects() {
@@ -706,6 +716,25 @@ document.querySelector('[data-confirm-form]')?.addEventListener('submit', async 
   }
 });
 
+
+document.querySelector('[data-lead-phone-form]')?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const leadId = event.target.dataset.leadId || '';
+  const form = new FormData(event.target);
+  try {
+    await TrueLeadAPI.patch(`/api/agency/preleads/${leadId}/phone`, {
+      phone: form.get('phone')
+    });
+    closeModal(event.target.closest('.modal-backdrop'));
+    event.target.reset();
+    event.target.dataset.leadId = '';
+    TLUtils.showMessage(messageBox, 'Teléfono actualizado para este lead.', 'success');
+    await loadAll();
+  } catch (error) {
+    TLUtils.showMessage(messageBox, error.message, 'error');
+  }
+});
+
 document.querySelector('[data-whatsapp-form]')?.addEventListener('submit', async (event) => {
   event.preventDefault();
   const form = new FormData(event.target);
@@ -755,12 +784,33 @@ async function disconnectSession(sessionId) {
 }
 
 
-async function downloadLeadExport(format) {
-  if (!canExportLeads()) {
-    TLUtils.showMessage(messageBox, planCapabilities().exportLabel || 'La exportación está disponible desde Agency.', 'error');
-    return;
-  }
 
+function bindLeadPhoneButtons() {
+  document.querySelectorAll('[data-edit-lead-phone]').forEach((button) => {
+    button.addEventListener('click', () => openLeadPhoneModal(button.dataset.editLeadPhone));
+  });
+}
+
+function findLeadById(id) {
+  return [...(state.leads || []), ...(state.dashboard?.recent || [])].find((lead) => lead.id === id);
+}
+
+function openLeadPhoneModal(leadId) {
+  const lead = findLeadById(leadId);
+  if (!lead) return;
+  const modal = modalByName('lead-phone');
+  const form = document.querySelector('[data-lead-phone-form]');
+  if (!modal || !form) return;
+
+  form.dataset.leadId = leadId;
+  setField(form, 'code', lead.code || '');
+  setField(form, 'phone', lead.manualPhone || lead.phone || lead.whatsappFromPhone || '');
+  const title = modal.querySelector('[data-lead-phone-title]');
+  if (title) title.textContent = (lead.manualPhone || lead.phone) ? 'Editar teléfono del lead' : 'Agregar teléfono al lead';
+  modal.classList.add('open');
+}
+
+async function downloadLeadExport(format) {
   const form = document.querySelector('[data-export-form]');
   const mode = form?.elements?.mode?.value || 'full';
   const params = new URLSearchParams();

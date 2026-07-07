@@ -59,6 +59,12 @@ function findWhatsappSession(agencyId, sessionId) {
 }
 
 function latestLeadPhone(lead) {
+  // WhatsApp puede entregar LID en vez de teléfono real. Por eso priorizamos
+  // el número cargado manualmente por la agencia/cliente y nunca usamos LID
+  // como teléfono exportable.
+  const manual = normalizeLeadPhone(lead.manualPhone || '');
+  if (manual) return manual;
+
   const direct = normalizeLeadPhone(lead.whatsappFromPhone || lead.phone || '');
   if (direct) return direct;
 
@@ -83,15 +89,22 @@ function maskPhone(phone, last4 = '') {
 
 function formatPhoneForPanel(phone, last4 = '', capabilities = { canViewFullPhones: true }) {
   const normalized = normalizeLeadPhone(phone);
-  if (capabilities?.canViewFullPhones && normalized) return normalized;
+  if (normalized) return normalized;
   return maskPhone(normalized, last4);
 }
 
 function agencyCapabilities(req) {
-  if (req.auth?.role === 'admin') {
-    return { ...getPlanCapabilities('enterprise'), canViewFullPhones: true, canExportLeads: true };
-  }
-  return getPlanCapabilities(req.agency?.plan || 'starter');
+  const capabilities = req.auth?.role === 'admin'
+    ? getPlanCapabilities('enterprise')
+    : getPlanCapabilities(req.agency?.plan || 'starter');
+
+  return {
+    ...capabilities,
+    canViewFullPhones: true,
+    canExportLeads: true,
+    canEditLeadPhones: true,
+    phoneVisibility: 'manual'
+  };
 }
 
 function usageForAgency(aid) {
@@ -151,17 +164,20 @@ function leadStats(lead) {
 function enrichLead(lead, clients, projects, { capabilities = { canViewFullPhones: true } } = {}) {
   const phone = latestLeadPhone(lead);
   const phoneDisplay = formatPhoneForPanel(phone, lead.whatsappFromLast4, capabilities);
-  const safePhone = capabilities?.canViewFullPhones ? phone : '';
+  const hasManualPhone = Boolean(normalizeLeadPhone(lead.manualPhone || ''));
   return {
     ...lead,
     client: findClient(clients, lead.clientId),
     project: findProject(projects, lead.projectId),
-    whatsappFromPhone: safePhone,
-    whatsappFrom: safePhone,
-    phone: safePhone,
+    whatsappFromPhone: phone,
+    whatsappFrom: phone,
+    phone,
+    manualPhone: normalizeLeadPhone(lead.manualPhone || ''),
+    hasManualPhone,
     phoneDisplay,
     phoneMasked: maskPhone(phone, lead.whatsappFromLast4),
-    phoneVisibility: capabilities?.phoneVisibility || 'full',
+    phoneVisibility: 'manual',
+    canEditPhone: true,
     ...leadStats(lead)
   };
 }
@@ -486,11 +502,6 @@ agencyRouter.delete('/projects/:id', ensureAgencyActive, async (req, res) => {
 
 
 agencyRouter.get('/exports/leads', ensureAgencyActive, (req, res) => {
-  const capabilities = agencyCapabilities(req);
-  if (!capabilities.canExportLeads) {
-    return res.status(403).json({ error: capabilities.exportLabel || 'La exportación está disponible desde Agency.' });
-  }
-
   const aid = agencyId(req);
   const range = parseDateRange(req.query);
   const mode = cleanString(req.query.mode || 'full', 40);
@@ -503,6 +514,41 @@ agencyRouter.get('/exports/leads', ensureAgencyActive, (req, res) => {
 
   if (safeFormat === 'xlsx') return sendRowsAsXlsx(res, rows, filename);
   return sendRowsAsCsv(res, rows, filename);
+});
+
+
+
+agencyRouter.patch('/preleads/:id/phone', ensureAgencyActive, async (req, res) => {
+  const aid = agencyId(req);
+  const lead = db.data.preleads.find((item) => item.id === req.params.id && item.agencyId === aid);
+  if (!lead) return res.status(404).json({ error: 'Lead no encontrado.' });
+
+  const rawPhone = cleanString(req.body.phone, 80);
+  const normalizedPhone = normalizeLeadPhone(rawPhone);
+
+  if (rawPhone && !normalizedPhone) {
+    return res.status(400).json({ error: 'Ingresá un teléfono válido con código de país. Ejemplo: 5491123456789.' });
+  }
+
+  const patch = {
+    manualPhone: normalizedPhone,
+    manualPhoneRaw: rawPhone,
+    manualPhoneUpdatedAt: nowIso(),
+    manualPhoneUpdatedBy: req.auth.sub,
+    updatedAt: nowIso()
+  };
+
+  // El teléfono manual es la fuente confiable para panel/exportación.
+  // Si se borra manualmente, no forzamos un LID ni un dato automático dudoso.
+  patch.phone = normalizedPhone;
+  patch.whatsappFromPhone = normalizedPhone;
+  patch.whatsappFrom = normalizedPhone;
+  patch.whatsappFromLast4 = normalizedPhone ? normalizedPhone.slice(-4) : '';
+
+  const updated = await db.update('preleads', lead.id, patch);
+  const clients = db.data.clients.filter((c) => c.agencyId === aid);
+  const projects = db.data.projects.filter((p) => p.agencyId === aid);
+  res.json({ lead: enrichLead(updated, clients, projects, { capabilities: agencyCapabilities(req) }) });
 });
 
 agencyRouter.get('/preleads', ensureAgencyActive, (req, res) => {
