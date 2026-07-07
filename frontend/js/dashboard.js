@@ -468,7 +468,30 @@ function renderWhatsapp() {
   });
 
   document.querySelectorAll('[data-wa-qr-box]').forEach((box) => {
-    box.classList.toggle('hidden', Boolean(s.qrDataUrl));
+    box.innerHTML = '';
+    box.classList.remove('is-connected', 'is-empty', 'is-connecting');
+
+    if (s.qrDataUrl) {
+      box.classList.add('hidden');
+      return;
+    }
+
+    box.classList.remove('hidden');
+
+    if (s.status === 'connected') {
+      box.classList.add('is-connected');
+      box.innerHTML = `
+        <div class="wa-preview-icon">WA</div>
+        <div class="wa-preview-copy">
+          <strong>${escapeHtml(s.label || 'WhatsApp conectado')}</strong>
+          <span>${escapeHtml(s.number || 'Número vinculado')}</span>
+        </div>
+      `;
+    } else if (s.status === 'connecting') {
+      box.classList.add('is-connecting');
+    } else {
+      box.classList.add('is-empty');
+    }
   });
 
   renderWhatsappSessions();
