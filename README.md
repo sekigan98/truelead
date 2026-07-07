@@ -366,3 +366,9 @@ Si el dominio no coincide, no crea el prelead ni genera código TL. Esto permite
 - Se normaliza el JID propio de Baileys antes de guardarlo como número público.
 - Corrige casos como `5491124649559:2@s.whatsapp.net`, que antes terminaban como `54911246495592`.
 - En el arranque se reparan sesiones/proyectos ya guardados con ese formato incorrecto para que el SDK abra `wa.me` con el número real.
+
+
+## Fix navbar sesión
+- La home detecta sesión activa por localStorage/cookie y reemplaza Iniciar sesión/Crear cuenta por Ver panel/Cerrar sesión.
+- Se agregó logout.html para limpiar sesión en app.truelead.com.ar y cookies compartidas del dominio.
+- Login/Register redirigen al panel si ya hay sesión activa guardada.

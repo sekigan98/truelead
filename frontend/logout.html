@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cerrando sesión — TrueLead</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="icon" type="image/png" href="assets/logo.png" />
+</head>
+<body>
+  <main class="auth-page">
+    <section class="auth-card">
+      <a class="brand" href="index.html">
+        <img src="assets/logo.png" alt="TrueLead" />
+        <span>TRUELEAD</span>
+      </a>
+      <h1>Cerrando sesión</h1>
+      <p class="muted">Estamos limpiando la sesión de este navegador.</p>
+    </section>
+  </main>
+
+  <script src="js/api.js"></script>
+  <script>
+    (function () {
+      function safeRedirectTarget(value) {
+        if (!value) return 'login.html';
+        try {
+          const url = new URL(value, window.location.origin);
+          const allowedHosts = new Set(['truelead.com.ar', 'www.truelead.com.ar', 'app.truelead.com.ar', window.location.hostname]);
+          return allowedHosts.has(url.hostname) ? url.href : 'login.html';
+        } catch (error) {
+          return 'login.html';
+        }
+      }
+
+      TrueLeadAPI.clearSession();
+      const params = new URLSearchParams(window.location.search);
+      const redirect = safeRedirectTarget(params.get('redirect'));
+      setTimeout(() => { window.location.href = redirect; }, 250);
+    })();
+  </script>
+</body>
+</html>

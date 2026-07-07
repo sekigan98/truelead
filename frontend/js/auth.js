@@ -6,7 +6,13 @@ const messageBox = document.querySelector('[data-message]');
 async function redirectIfSessionIsActive(destination = 'client') {
   const savedUser = TrueLeadAPI.user();
   const token = TrueLeadAPI.token();
-  if (!savedUser || !token) return;
+  if (!savedUser || !token) {
+    const hint = TrueLeadAPI.sessionHint?.() || {};
+    if (hint.loggedIn) {
+      location.href = TrueLeadAPI.panelUrl(hint.role || 'agency');
+    }
+    return;
+  }
 
   try {
     const data = await TrueLeadAPI.get('/api/auth/me');
@@ -14,9 +20,9 @@ async function redirectIfSessionIsActive(destination = 'client') {
     TrueLeadAPI.setSession(token, activeUser);
 
     if (destination === 'admin') {
-      location.href = activeUser.role === 'admin' ? 'admin.html' : 'app.html';
+      location.href = TrueLeadAPI.panelUrl(activeUser.role);
     } else {
-      location.href = activeUser.role === 'admin' ? 'admin.html' : 'app.html';
+      location.href = TrueLeadAPI.panelUrl(activeUser.role);
     }
   } catch (error) {
     TrueLeadAPI.clearSession();
@@ -44,7 +50,7 @@ if (loginForm) {
       }
 
       TrueLeadAPI.setSession(data.token, data.user);
-      location.href = destination === 'admin' ? 'admin.html' : 'app.html';
+      location.href = TrueLeadAPI.panelUrl(data.user.role);
     } catch (error) {
       TLUtils.showMessage(messageBox, error.message, 'error');
     }

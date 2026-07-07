@@ -31,7 +31,35 @@ function setTrueLeadCookie(name, value, days = 30) {
 }
 
 function clearTrueLeadCookie(name) {
+  document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax`;
   document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax${trueLeadCookieDomain()}`;
+}
+
+
+function trueLeadIsMarketingHost() {
+  return ['truelead.com.ar', 'www.truelead.com.ar'].includes(window.location.hostname);
+}
+
+function trueLeadAppOrigin() {
+  return trueLeadIsMarketingHost() ? 'https://app.truelead.com.ar' : '';
+}
+
+function trueLeadPageUrl(page) {
+  const cleanPage = String(page || '').replace(/^\/+/, '');
+  const origin = trueLeadAppOrigin();
+  return origin ? `${origin}/${cleanPage}` : cleanPage;
+}
+
+function trueLeadPanelUrl(role = 'agency') {
+  return trueLeadPageUrl(role === 'admin' ? 'admin.html' : 'app.html');
+}
+
+function trueLeadLogoutUrl(redirectTo) {
+  const defaultRedirect = trueLeadIsMarketingHost()
+    ? `${window.location.origin}/index.html`
+    : 'index.html';
+  const redirect = redirectTo || defaultRedirect;
+  return `${trueLeadPageUrl('logout.html')}?redirect=${encodeURIComponent(redirect)}`;
 }
 
 function getTrueLeadCookie(name) {
@@ -52,7 +80,8 @@ const TrueLeadAPI = {
     localStorage.setItem('tl_user', JSON.stringify(user));
     setTrueLeadCookie('tl_logged_in', '1');
     setTrueLeadCookie('tl_role', user?.role || 'agency');
-    setTrueLeadCookie('tl_name', user?.name || 'TrueLead');
+    setTrueLeadCookie('tl_name', user?.name || user?.agency?.name || 'TrueLead');
+    setTrueLeadCookie('tl_plan', user?.agency?.plan || user?.plan || '');
   },
   clearSession() {
     localStorage.removeItem('tl_token');
@@ -60,14 +89,21 @@ const TrueLeadAPI = {
     clearTrueLeadCookie('tl_logged_in');
     clearTrueLeadCookie('tl_role');
     clearTrueLeadCookie('tl_name');
+    clearTrueLeadCookie('tl_plan');
   },
   sessionHint() {
     return {
       loggedIn: getTrueLeadCookie('tl_logged_in') === '1',
       role: decodeURIComponent(getTrueLeadCookie('tl_role') || 'agency'),
-      name: decodeURIComponent(getTrueLeadCookie('tl_name') || '')
+      name: decodeURIComponent(getTrueLeadCookie('tl_name') || ''),
+      plan: decodeURIComponent(getTrueLeadCookie('tl_plan') || '')
     };
   },
+  isMarketingHost: trueLeadIsMarketingHost,
+  appOrigin: trueLeadAppOrigin,
+  pageUrl: trueLeadPageUrl,
+  panelUrl: trueLeadPanelUrl,
+  logoutUrl: trueLeadLogoutUrl,
   buildUrl(path) {
     const normalizedPath = String(path || '').startsWith('/') ? path : `/${path}`;
     return `${API_BASE}${normalizedPath}`;

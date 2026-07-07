@@ -1,33 +1,76 @@
 document.querySelectorAll('[data-year]').forEach(el => el.textContent = new Date().getFullYear());
 
-(function hydrateSessionLinks() {
+function runWhenReady(fn) {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', fn, { once: true });
+  } else {
+    fn();
+  }
+}
+
+function makeLink(className, href, text) {
+  const link = document.createElement('a');
+  link.className = className;
+  link.href = href;
+  link.textContent = text;
+  return link;
+}
+
+function makeChip(text) {
+  const chip = document.createElement('span');
+  chip.className = 'session-chip';
+  chip.dataset.sessionChip = 'true';
+  chip.textContent = text;
+  return chip;
+}
+
+function hydrateSessionLinks() {
   const localUser = TrueLeadAPI.user();
   const hint = TrueLeadAPI.sessionHint?.() || {};
   const isLogged = Boolean((localUser && TrueLeadAPI.token()) || hint.loggedIn);
   if (!isLogged) return;
 
   const role = localUser?.role || hint.role || 'agency';
-  const name = localUser?.name || hint.name || 'Sesión activa';
-  const agencyPlan = localUser?.agency?.plan || '';
-  const appOrigin = ['truelead.com.ar', 'www.truelead.com.ar'].includes(location.hostname) ? 'https://app.truelead.com.ar' : '';
-  const panelHref = `${appOrigin}/${role === 'admin' ? 'admin.html' : 'app.html'}`.replace(/^\//, '');
+  const userName = localUser?.name || hint.name || 'Sesión activa';
+  const agencyPlan = localUser?.agency?.plan || hint.plan || '';
+  const panelHref = TrueLeadAPI.panelUrl(role);
+  const logoutHref = TrueLeadAPI.logoutUrl();
+  const panelText = role === 'admin' ? 'Ver admin' : 'Ver panel';
+  const chipText = agencyPlan ? `${userName} · ${agencyPlan}` : userName;
 
-  document.querySelectorAll('a[href="login.html"], a[href="app.html"]').forEach((link) => {
+  document.querySelectorAll('a[href="login.html"], a[href="app.html"], a[href="admin.html"]').forEach((link) => {
     link.href = panelHref;
-    link.textContent = role === 'admin' ? 'Ir al admin' : 'Ir al panel';
+    link.textContent = panelText;
+  });
+
+  document.querySelectorAll('a[href="register.html"]').forEach((link) => {
+    link.href = panelHref;
+    if (/crear|empezar|escalar|contactar/i.test(link.textContent || '')) {
+      link.textContent = panelText;
+    }
   });
 
   const actions = document.querySelector('.header .actions');
-  if (actions && !actions.querySelector('[data-session-chip]')) {
-    const chip = document.createElement('span');
-    chip.className = 'session-chip';
-    chip.dataset.sessionChip = 'true';
-    chip.textContent = agencyPlan ? `${name} · ${agencyPlan}` : name;
-    actions.prepend(chip);
+  if (actions) {
+    actions.replaceChildren(
+      makeChip(chipText),
+      makeLink('btn btn-primary', panelHref, panelText),
+      makeLink('btn btn-secondary', logoutHref, 'Cerrar sesión')
+    );
   }
-})();
+
+  const heroActions = document.querySelector('.hero-actions');
+  if (heroActions) {
+    heroActions.replaceChildren(
+      makeLink('btn btn-primary', panelHref, panelText),
+      makeLink('btn btn-secondary', logoutHref, 'Cerrar sesión')
+    );
+  }
+}
+
+runWhenReady(hydrateSessionLinks);
 
 const demoButtons = document.querySelectorAll('[data-demo-register]');
 demoButtons.forEach(btn => btn.addEventListener('click', () => {
-  location.href = 'register.html';
+  location.href = TrueLeadAPI.panelUrl('agency');
 }));
