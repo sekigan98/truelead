@@ -2,7 +2,7 @@ import express from 'express';
 import { db } from '../lib/db.js';
 import { cleanString, normalizeWhatsAppNumber } from '../lib/utils.js';
 import { requireAuth } from '../middleware/auth.js';
-import { getPlanById, isWithinPlanLimit } from '../lib/pricing.js';
+import { getPlanById, getPlanCapabilities, isWithinPlanLimit } from '../lib/pricing.js';
 
 export const whatsappRouter = express.Router();
 
@@ -14,6 +14,19 @@ function getManager(req) {
 
 function getClientName(agencyId, clientId) {
   return db.data.clients.find((client) => client.id === clientId && client.agencyId === agencyId)?.name || '';
+}
+
+function requireWhatsappAllowed(req, res) {
+  const agency = db.data.agencies.find((a) => a.id === req.auth.agencyId);
+  const capabilities = getPlanCapabilities(agency?.plan || 'free');
+  if (capabilities.canConnectWhatsapp || req.auth.role === 'admin') return { ok: true, agency, capabilities };
+
+  res.status(402).json({
+    error: 'Tu cuenta Free es solo vista previa. Actualizá a Starter o superior para vincular WhatsApp por QR.',
+    requiredPlan: 'starter',
+    currentPlan: agency?.plan || 'free'
+  });
+  return { ok: false, agency, capabilities };
 }
 
 function enrichSession(req, session) {
@@ -38,6 +51,8 @@ whatsappRouter.get('/status', async (req, res) => {
 });
 
 whatsappRouter.post('/request-qr', async (req, res) => {
+  const allowed = requireWhatsappAllowed(req, res);
+  if (!allowed.ok) return;
   try {
     const clientId = cleanString(req.body.clientId, 80);
     const label = cleanString(req.body.label || 'WhatsApp principal', 120);
@@ -78,6 +93,8 @@ whatsappRouter.post('/request-qr', async (req, res) => {
 });
 
 whatsappRouter.post('/reconnect', async (req, res) => {
+  const allowed = requireWhatsappAllowed(req, res);
+  if (!allowed.ok) return;
   try {
     const sessionId = cleanString(req.body.sessionId || req.query.sessionId, 80);
     if (!sessionId) return res.status(400).json({ error: 'Falta sessionId.' });
@@ -113,6 +130,8 @@ whatsappRouter.post('/disconnect', async (req, res) => {
 });
 
 whatsappRouter.post('/reset', async (req, res) => {
+  const allowed = requireWhatsappAllowed(req, res);
+  if (!allowed.ok) return;
   try {
     const sessionId = cleanString(req.body.sessionId || req.query.sessionId, 80);
     if (!sessionId) return res.status(400).json({ error: 'Falta sessionId.' });
@@ -134,6 +153,8 @@ whatsappRouter.post('/reset', async (req, res) => {
   WHATSAPP_ALLOW_DEMO_CONNECT=false
 */
 whatsappRouter.post('/mark-connected', async (req, res) => {
+  const allowed = requireWhatsappAllowed(req, res);
+  if (!allowed.ok) return;
   if (process.env.WHATSAPP_ALLOW_DEMO_CONNECT === 'false') {
     return res.status(403).json({ error: 'La conexión demo está desactivada.' });
   }

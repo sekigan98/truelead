@@ -68,7 +68,7 @@ if (registerForm) {
         email: form.get('email'),
         password: form.get('password')
       });
-      TLUtils.showMessage(messageBox, 'Cuenta creada. Te enviamos un email con el botón para activar el trial.', 'success');
+      TLUtils.showMessage(messageBox, 'Cuenta creada. Te enviamos un email para activar el acceso Free al panel.', 'success');
       registerForm.reset();
     } catch (error) {
       TLUtils.showMessage(messageBox, error.message, 'error');

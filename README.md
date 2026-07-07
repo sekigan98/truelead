@@ -243,7 +243,7 @@ En Gmail no conviene usar la contraseña normal de la cuenta; usá contraseña d
 ## Cambios versión 1.3.0
 
 - Registro con activación por email mediante botón.
-- La cuenta entra en trial automáticamente al verificar el email.
+- La cuenta entra en Free automáticamente al verificar el email; Starter o superior habilita medición real.
 - Emails HTML con estética TrueLead.
 - El login de cliente/agencia ya no depende de activación manual del admin.
 - Los proyectos usan el WhatsApp vinculado por QR como destino real.
@@ -387,3 +387,18 @@ Este build sirve rutas limpias desde Express:
 - `/logout` → cierre de sesión
 
 Las URLs viejas con `.html` redirigen automáticamente a su equivalente limpio.
+
+
+## Plan Free y límites comerciales
+
+Las cuentas nuevas ahora se crean en plan `free`. Free permite iniciar sesión y ver el panel, pero no permite crear clientes, crear proyectos, vincular WhatsApp, usar SDK/CAPI ni exportar bases. El administrador debe actualizar la cuenta a Starter o superior para activar medición real.
+
+Límites actuales:
+
+- Free: vista previa, 0 clientes, 0 proyectos, 0 WhatsApps.
+- Starter: 1 cliente, hasta 5 proyectos, 1 WhatsApp total por agencia.
+- Pro: hasta 5 clientes, 25 proyectos, 5 WhatsApps totales por agencia.
+- Agency: hasta 20 clientes, 100 proyectos, 20 WhatsApps totales por agencia.
+- Enterprise: flexible.
+
+El límite de WhatsApps es por agencia/cuenta total. Cada WhatsApp pertenece a un cliente y puede reutilizarse en varios proyectos del mismo cliente.

@@ -57,12 +57,12 @@ authRouter.post('/register', async (req, res) => {
     id: agencyId,
     name: agencyName,
     status: 'pending_email',
-    plan: 'starter',
-    planStatus: 'trial_pending_email',
+    plan: 'free',
+    planStatus: 'free_pending_email',
     createdAt: nowIso(),
     activatedAt: null,
-    expiresAt: addDays(new Date(), 14),
-    notes: 'Cuenta esperando verificación de email. Se activa automáticamente al verificar.'
+    expiresAt: null,
+    notes: 'Cuenta Free esperando verificación de email. Requiere pago de Starter o superior para activar medición real.'
   };
 
   const user = {
@@ -85,10 +85,10 @@ authRouter.post('/register', async (req, res) => {
     agencyId,
     amount: 0,
     currency: 'ARS',
-    plan: 'starter',
-    status: 'trial',
-    method: 'trial',
-    notes: 'Trial iniciado al verificar email.',
+    plan: 'free',
+    status: 'active',
+    method: 'free',
+    notes: 'Cuenta Free creada. Requiere Starter o superior para vincular WhatsApp y crear proyectos.',
     createdAt: nowIso(),
     updatedAt: nowIso()
   });
@@ -102,7 +102,7 @@ authRouter.post('/register', async (req, res) => {
 
   return res.status(201).json({
     ok: true,
-    message: 'Cuenta creada. Te enviamos un email para activarla y empezar el trial.',
+    message: 'Cuenta creada. Te enviamos un email para activarla. Tu cuenta inicia en Free; para medir leads reales necesitás Starter o superior.',
     user: publicUser(user)
   });
 });
@@ -138,10 +138,10 @@ authRouter.get('/verify-email', async (req, res) => {
   user.status = 'active';
   user.emailVerifiedAt = user.emailVerifiedAt || nowIso();
   agency.status = 'active';
-  agency.planStatus = 'trial';
+  agency.planStatus = 'free';
   agency.activatedAt = agency.activatedAt || nowIso();
-  agency.expiresAt = agency.expiresAt || addDays(new Date(), 14);
-  agency.notes = 'Cuenta activada automáticamente por verificación de email.';
+  agency.expiresAt = agency.expiresAt || null;
+  agency.notes = 'Cuenta Free activada automáticamente por verificación de email. Requiere pago de Starter o superior para usar proyectos, WhatsApp y SDK.';
 
   db.data.events.push({
     id: `ev_${Date.now()}_${Math.random().toString(36).slice(2)}`,

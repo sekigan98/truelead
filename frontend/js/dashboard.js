@@ -70,12 +70,13 @@ function leadPhone(lead) {
 
 function leadPhoneCell(lead) {
   const phone = leadPhone(lead);
+  const canEdit = Boolean(planCapabilities().canEditLeadPhones);
   const label = phone ? 'Editar' : 'Agregar';
   const phoneText = phone ? escapeHtml(phone) : '<span class="muted">Sin teléfono</span>';
   return `
     <div class="phone-cell">
       <strong>${phoneText}</strong>
-      <button type="button" class="mini-link" data-edit-lead-phone="${escapeHtml(lead.id)}">${label}</button>
+      ${canEdit ? `<button type="button" class="mini-link" data-edit-lead-phone="${escapeHtml(lead.id)}">${label}</button>` : '<small class="muted">Disponible desde Starter</small>'}
     </div>
   `;
 }
@@ -85,22 +86,32 @@ function planCapabilities() {
 }
 
 function canExportLeads() {
-  return true;
+  return Boolean(planCapabilities().canExportLeads);
+}
+
+function isFreePlan() {
+  const agency = state.dashboard?.agency || user.agency || {};
+  return String(agency.plan || state.dashboard?.plan?.id || '').toLowerCase() === 'free' || planCapabilities().upgradeRequired;
+}
+
+function paidPlanRequiredMessage(action = 'usar esta función') {
+  return `Tu cuenta Free es solo vista previa. Para ${action}, necesitás activar Starter o superior.`;
 }
 
 function renderExportGate() {
-  const capabilities = planCapabilities();
   const canExport = canExportLeads();
   document.querySelectorAll('[data-export-format]').forEach((button) => {
-    button.disabled = false;
-    button.classList.remove('is-disabled');
-    button.title = '';
+    button.disabled = !canExport;
+    button.classList.toggle('is-disabled', !canExport);
+    button.title = canExport ? '' : 'Disponible desde Starter';
   });
 
   const note = document.querySelector('[data-export-note]');
   if (note) {
-    note.textContent = 'Exportación habilitada para todos los planes. Si WhatsApp entrega LID, usá Agregar/Editar para cargar el teléfono real antes de descargar la base.';
-    note.classList.add('success');
+    note.textContent = canExport
+      ? 'Exportación incluida. Si WhatsApp entrega LID, usá Agregar/Editar para cargar el teléfono real antes de descargar la base.'
+      : 'Tu cuenta Free es solo vista previa. Activá Starter o superior para exportar CSV/XLSX.';
+    note.classList.toggle('success', canExport);
   }
 }
 
@@ -160,7 +171,27 @@ function renderMetrics() {
 
   const phonePolicy = document.querySelector('[data-phone-policy]');
   if (phonePolicy) {
-    phonePolicy.textContent = 'Los teléfonos de leads son editables manualmente para evitar LID de WhatsApp. La exportación usa el número cargado/corregido.';
+    phonePolicy.textContent = isFreePlan()
+      ? 'Estás en Free: podés ver el panel, pero para crear clientes, proyectos, vincular WhatsApp y medir leads reales necesitás Starter o superior.'
+      : 'Los teléfonos de leads son editables manualmente para evitar LID de WhatsApp. La exportación usa el número cargado/corregido.';
+  }
+
+  const upgradeBanner = document.querySelector('[data-upgrade-banner]');
+  if (upgradeBanner) upgradeBanner.classList.toggle('hidden', !isFreePlan());
+
+  document.querySelectorAll('[data-open-modal="client"]').forEach(btn => {
+    btn.disabled = !capabilities.canCreateClients;
+    btn.title = capabilities.canCreateClients ? '' : 'Disponible desde Starter';
+  });
+  document.querySelectorAll('[data-open-modal="project"]').forEach(btn => {
+    btn.disabled = !capabilities.canCreateProjects;
+    btn.title = capabilities.canCreateProjects ? '' : 'Disponible desde Starter';
+  });
+  const waSubmit = document.querySelector('[data-whatsapp-form] button[type="submit"]');
+  if (waSubmit) {
+    waSubmit.disabled = !capabilities.canConnectWhatsapp;
+    waSubmit.textContent = capabilities.canConnectWhatsapp ? 'Vincular nuevo WhatsApp' : 'Disponible desde Starter';
+    waSubmit.title = capabilities.canConnectWhatsapp ? '' : 'Actualizá a Starter o superior para vincular WhatsApp';
   }
 
   renderExportGate();
@@ -462,7 +493,7 @@ function renderWhatsappSessions() {
         <p>Última actividad: ${TLUtils.formatDate(session.lastActivityAt || session.updatedAt)}</p>
         ${session.lastError ? `<p class="muted">Error: ${session.lastError}</p>` : ''}
         <div class="actions">
-          <button class="btn btn-primary btn-small" data-session-qr="${session.id}">Generar QR / Reconectar</button>
+          <button class="btn btn-primary btn-small" ${planCapabilities().canConnectWhatsapp ? `data-session-qr="${session.id}"` : 'disabled title="Disponible desde Starter"'}>Generar QR / Reconectar</button>
           <button class="btn btn-danger btn-small" data-session-disconnect="${session.id}">Desvincular</button>
         </div>
       </article>
@@ -642,8 +673,14 @@ async function deleteProject(projectId) {
 }
 
 document.querySelectorAll('[data-open-modal]').forEach(btn => btn.addEventListener('click', () => {
-  if (btn.dataset.openModal === 'client') return openClientModal();
-  if (btn.dataset.openModal === 'project') return openProjectModal();
+  if (btn.dataset.openModal === 'client') {
+    if (!planCapabilities().canCreateClients) return TLUtils.showMessage(messageBox, paidPlanRequiredMessage('crear clientes'), 'error');
+    return openClientModal();
+  }
+  if (btn.dataset.openModal === 'project') {
+    if (!planCapabilities().canCreateProjects) return TLUtils.showMessage(messageBox, paidPlanRequiredMessage('crear proyectos'), 'error');
+    return openProjectModal();
+  }
   const modal = document.querySelector(`[data-modal="${btn.dataset.openModal}"]`);
   modal?.classList.add('open');
   renderWhatsappSessionSelect();
@@ -656,6 +693,7 @@ document.querySelector('[data-client-select]')?.addEventListener('change', rende
 
 document.querySelector('[data-client-form]')?.addEventListener('submit', async (event) => {
   event.preventDefault();
+  if (!planCapabilities().canCreateClients) return TLUtils.showMessage(messageBox, paidPlanRequiredMessage('crear clientes'), 'error');
   const form = new FormData(event.target);
   const payload = Object.fromEntries(form.entries());
   const editId = event.target.dataset.editId || '';
@@ -678,6 +716,7 @@ document.querySelector('[data-client-form]')?.addEventListener('submit', async (
 
 document.querySelector('[data-project-form]')?.addEventListener('submit', async (event) => {
   event.preventDefault();
+  if (!planCapabilities().canCreateProjects) return TLUtils.showMessage(messageBox, paidPlanRequiredMessage('crear proyectos'), 'error');
   const form = new FormData(event.target);
   const payload = Object.fromEntries(form.entries());
   const editId = event.target.dataset.editId || '';
@@ -719,6 +758,7 @@ document.querySelector('[data-confirm-form]')?.addEventListener('submit', async 
 
 document.querySelector('[data-lead-phone-form]')?.addEventListener('submit', async (event) => {
   event.preventDefault();
+  if (!planCapabilities().canEditLeadPhones) return TLUtils.showMessage(messageBox, paidPlanRequiredMessage('editar teléfonos'), 'error');
   const leadId = event.target.dataset.leadId || '';
   const form = new FormData(event.target);
   try {
@@ -737,6 +777,7 @@ document.querySelector('[data-lead-phone-form]')?.addEventListener('submit', asy
 
 document.querySelector('[data-whatsapp-form]')?.addEventListener('submit', async (event) => {
   event.preventDefault();
+  if (!planCapabilities().canConnectWhatsapp) return TLUtils.showMessage(messageBox, paidPlanRequiredMessage('vincular WhatsApp'), 'error');
   const form = new FormData(event.target);
   const body = Object.fromEntries(form.entries());
 
@@ -811,6 +852,7 @@ function openLeadPhoneModal(leadId) {
 }
 
 async function downloadLeadExport(format) {
+  if (!canExportLeads()) return TLUtils.showMessage(messageBox, paidPlanRequiredMessage('exportar bases'), 'error');
   const form = document.querySelector('[data-export-form]');
   const mode = form?.elements?.mode?.value || 'full';
   const params = new URLSearchParams();

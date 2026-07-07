@@ -94,17 +94,20 @@ function formatPhoneForPanel(phone, last4 = '', capabilities = { canViewFullPhon
 }
 
 function agencyCapabilities(req) {
-  const capabilities = req.auth?.role === 'admin'
-    ? getPlanCapabilities('enterprise')
-    : getPlanCapabilities(req.agency?.plan || 'starter');
+  if (req.auth?.role === 'admin') return getPlanCapabilities('enterprise');
+  return getPlanCapabilities(req.agency?.plan || 'free');
+}
 
-  return {
-    ...capabilities,
-    canViewFullPhones: true,
-    canExportLeads: true,
-    canEditLeadPhones: true,
-    phoneVisibility: 'manual'
-  };
+function requirePlanCapability(req, res, capability, actionLabel = 'usar esta función') {
+  const capabilities = agencyCapabilities(req);
+  if (capabilities[capability]) return true;
+
+  res.status(402).json({
+    error: `Tu cuenta está en plan ${req.agency?.plan || 'Free'}. Para ${actionLabel}, necesitás Starter o superior.`,
+    requiredPlan: 'starter',
+    currentPlan: req.agency?.plan || 'free'
+  });
+  return false;
 }
 
 function usageForAgency(aid) {
@@ -118,7 +121,9 @@ function usageForAgency(aid) {
 function enforceLimit(res, { current, limit, label, planName }) {
   if (isWithinPlanLimit(current, limit)) return true;
   res.status(403).json({
-    error: `Tu plan ${planName} permite hasta ${limit} ${label}. Actualizá el plan para agregar más.`
+    error: Number(limit) === 0
+      ? `Tu plan ${planName} es solo vista previa. Actualizá a Starter o superior para crear ${label}.`
+      : `Tu plan ${planName} permite hasta ${limit} ${label}. Actualizá el plan para agregar más.`
   });
   return false;
 }
@@ -344,6 +349,7 @@ agencyRouter.get('/clients', ensureAgencyActive, (req, res) => {
 });
 
 agencyRouter.post('/clients', ensureAgencyActive, async (req, res) => {
+  if (!requirePlanCapability(req, res, 'canCreateClients', 'crear clientes')) return;
   const plan = getPlanById(req.agency.plan);
   const current = db.data.clients.filter((c) => c.agencyId === agencyId(req)).length;
   if (!enforceLimit(res, { current, limit: plan.clientsLimit, label: 'clientes', planName: plan.name })) return;
@@ -360,6 +366,7 @@ agencyRouter.post('/clients', ensureAgencyActive, async (req, res) => {
 });
 
 agencyRouter.put('/clients/:id', ensureAgencyActive, async (req, res) => {
+  if (!requirePlanCapability(req, res, 'canCreateClients', 'editar clientes')) return;
   const client = db.data.clients.find((c) => c.id === req.params.id && c.agencyId === agencyId(req));
   if (!client) return res.status(404).json({ error: 'Cliente no encontrado.' });
 
@@ -374,6 +381,7 @@ agencyRouter.put('/clients/:id', ensureAgencyActive, async (req, res) => {
 });
 
 agencyRouter.delete('/clients/:id', ensureAgencyActive, async (req, res) => {
+  if (!requirePlanCapability(req, res, 'canCreateClients', 'eliminar clientes')) return;
   const aid = agencyId(req);
   const client = db.data.clients.find((c) => c.id === req.params.id && c.agencyId === aid);
   if (!client) return res.status(404).json({ error: 'Cliente no encontrado.' });
@@ -427,6 +435,7 @@ agencyRouter.get('/projects', ensureAgencyActive, (req, res) => {
 });
 
 agencyRouter.post('/projects', ensureAgencyActive, async (req, res) => {
+  if (!requirePlanCapability(req, res, 'canCreateProjects', 'crear proyectos')) return;
   const plan = getPlanById(req.agency.plan);
   const current = db.data.projects.filter((p) => p.agencyId === agencyId(req)).length;
   if (!enforceLimit(res, { current, limit: plan.projectsLimit, label: 'proyectos', planName: plan.name })) return;
@@ -460,6 +469,7 @@ agencyRouter.post('/projects', ensureAgencyActive, async (req, res) => {
 });
 
 agencyRouter.put('/projects/:id', ensureAgencyActive, async (req, res) => {
+  if (!requirePlanCapability(req, res, 'canCreateProjects', 'editar proyectos')) return;
   const project = db.data.projects.find((p) => p.id === req.params.id && p.agencyId === agencyId(req));
   if (!project) return res.status(404).json({ error: 'Proyecto no encontrado.' });
 
@@ -494,6 +504,7 @@ agencyRouter.put('/projects/:id', ensureAgencyActive, async (req, res) => {
 });
 
 agencyRouter.delete('/projects/:id', ensureAgencyActive, async (req, res) => {
+  if (!requirePlanCapability(req, res, 'canCreateProjects', 'eliminar proyectos')) return;
   const project = db.data.projects.find((p) => p.id === req.params.id && p.agencyId === agencyId(req));
   if (!project) return res.status(404).json({ error: 'Proyecto no encontrado.' });
   await db.remove('projects', project.id);
@@ -502,6 +513,7 @@ agencyRouter.delete('/projects/:id', ensureAgencyActive, async (req, res) => {
 
 
 agencyRouter.get('/exports/leads', ensureAgencyActive, (req, res) => {
+  if (!requirePlanCapability(req, res, 'canExportLeads', 'exportar bases')) return;
   const aid = agencyId(req);
   const range = parseDateRange(req.query);
   const mode = cleanString(req.query.mode || 'full', 40);
@@ -519,6 +531,7 @@ agencyRouter.get('/exports/leads', ensureAgencyActive, (req, res) => {
 
 
 agencyRouter.patch('/preleads/:id/phone', ensureAgencyActive, async (req, res) => {
+  if (!requirePlanCapability(req, res, 'canEditLeadPhones', 'editar teléfonos de leads')) return;
   const aid = agencyId(req);
   const lead = db.data.preleads.find((item) => item.id === req.params.id && item.agencyId === aid);
   if (!lead) return res.status(404).json({ error: 'Lead no encontrado.' });
@@ -587,6 +600,7 @@ agencyRouter.get('/purchases', ensureAgencyActive, (req, res) => {
 });
 
 agencyRouter.patch('/purchases/:id/status', ensureAgencyActive, async (req, res) => {
+  if (!requirePlanCapability(req, res, 'canUsePurchases', 'validar comprobantes')) return;
   const result = await updatePurchaseStatus({
     purchaseId: req.params.id,
     agencyId: agencyId(req),

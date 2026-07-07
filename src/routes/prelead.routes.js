@@ -14,6 +14,7 @@ import {
 } from '../lib/utils.js';
 import { requireAuth } from '../middleware/auth.js';
 import { confirmPreleadByCode, registerIncomingWhatsAppMessage } from '../services/leadEvents.service.js';
+import { getPlanCapabilities } from '../lib/pricing.js';
 
 export const preleadRouter = express.Router();
 
@@ -28,6 +29,11 @@ function getRequestOrigin(req) {
   if (landingOrigin) return landingOrigin;
 
   return normalizeOrigin(req.body.landingUrl || '');
+}
+
+function projectAgencyCapabilities(project) {
+  const agency = db.data.agencies.find((item) => item.id === project.agencyId);
+  return getPlanCapabilities(agency?.plan || 'free');
 }
 
 function validateProjectLandingOrigin(project, req) {
@@ -121,6 +127,11 @@ preleadRouter.post('/preleads', async (req, res) => {
     return res.status(404).json({ error: 'Proyecto no encontrado o inactivo.' });
   }
 
+  const capabilities = projectAgencyCapabilities(project);
+  if (!capabilities.canUseSdk) {
+    return res.status(402).json({ error: 'Este proyecto pertenece a una cuenta Free. Activá Starter o superior para crear códigos TL desde la landing.' });
+  }
+
   const originValidation = validateProjectLandingOrigin(project, req);
   if (!originValidation.ok) {
     return res.status(originValidation.status || 403).json({
@@ -197,6 +208,14 @@ preleadRouter.post('/preleads/:code/confirm', requireAuth, async (req, res) => {
   if (!existingLead) return res.status(404).json({ error: 'Código no encontrado.' });
   if (req.auth.role !== 'admin' && existingLead.agencyId !== req.auth.agencyId) {
     return res.status(403).json({ error: 'No podés confirmar este lead.' });
+  }
+
+  if (req.auth.role !== 'admin') {
+    const agency = db.data.agencies.find((item) => item.id === req.auth.agencyId);
+    const capabilities = getPlanCapabilities(agency?.plan || 'free');
+    if (!capabilities.canUseSdk) {
+      return res.status(402).json({ error: 'Tu cuenta Free es solo vista previa. Activá Starter o superior para confirmar leads.' });
+    }
   }
 
   const result = await confirmPreleadByCode({

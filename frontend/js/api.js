@@ -160,7 +160,7 @@ function formatDate(value) {
 
 function statusClass(status) {
   if (['active', 'approved', 'sent', 'confirmed', 'sent_to_meta', 'purchase_confirmed'].includes(status)) return 'green';
-  if (['pending', 'pending_email', 'pending_validation', 'trial_pending_email', 'trial', 'skipped', 'intent', 'proof_received'].includes(status)) return 'yellow';
+  if (['pending', 'pending_email', 'pending_validation', 'trial_pending_email', 'trial', 'free', 'free_pending_email', 'skipped', 'intent', 'proof_received'].includes(status)) return 'yellow';
   if (['suspended', 'rejected', 'error', 'duplicate'].includes(status)) return 'red';
   return 'gray';
 }

@@ -177,6 +177,7 @@ button { cursor: pointer; }
 .section-head.center { text-align: center; }
 .section-head h2 { margin: 12px 0; font-size: clamp(2rem, 4vw, 3.25rem); line-height: 1.05; letter-spacing: -.04em; }
 .grid-3, .grid-2, .pricing { display: grid; gap: 18px; }
+.pricing { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 .grid-3 { grid-template-columns: repeat(3, 1fr); }
 .grid-2 { grid-template-columns: repeat(2, 1fr); }
 .step, .feature, .price-card { padding: 24px; }

@@ -1,12 +1,45 @@
 export const PLAN_DEFINITIONS = [
   {
+    id: 'free',
+    name: 'Free',
+    title: 'Vista previa del panel',
+    usdMonthly: 0,
+    leadsMonthly: null,
+    clientsLimit: 0,
+    projectsLimit: 0,
+    whatsappLimit: 0,
+    featured: false,
+    capabilities: {
+      phoneVisibility: 'locked',
+      canViewFullPhones: false,
+      canExportLeads: false,
+      canEditLeadPhones: false,
+      canUseMetaCapi: false,
+      canUsePurchases: false,
+      canCreateClients: false,
+      canCreateProjects: false,
+      canConnectWhatsapp: false,
+      canUseSdk: false,
+      isPaid: false,
+      upgradeRequired: true,
+      exportLabel: 'Disponible desde Starter'
+    },
+    features: [
+      'Acceso al panel demo/preview',
+      'Sin clientes activos',
+      'Sin proyectos ni SDK',
+      'Sin WhatsApp vinculado',
+      'Requiere Starter o superior para medir leads reales'
+    ]
+  },
+  {
     id: 'starter',
     name: 'Starter',
-    title: 'Para probar medición real',
+    title: 'Para un primer cliente',
     usdMonthly: 19,
     leadsMonthly: null,
     clientsLimit: 1,
-    projectsLimit: 1,
+    projectsLimit: 5,
     whatsappLimit: 1,
     featured: false,
     capabilities: {
@@ -16,12 +49,18 @@ export const PLAN_DEFINITIONS = [
       canEditLeadPhones: true,
       canUseMetaCapi: true,
       canUsePurchases: true,
+      canCreateClients: true,
+      canCreateProjects: true,
+      canConnectWhatsapp: true,
+      canUseSdk: true,
+      isPaid: true,
+      upgradeRequired: false,
       exportLabel: 'Exportación incluida'
     },
     features: [
       '1 cliente',
-      '1 proyecto / landing',
-      '1 WhatsApp conectado',
+      'Hasta 5 proyectos / landings',
+      '1 WhatsApp conectado por QR',
       'Teléfono editable manualmente por lead',
       'Exportación CSV/XLSX incluida',
       'Leads reales y Meta CAPI'
@@ -30,11 +69,11 @@ export const PLAN_DEFINITIONS = [
   {
     id: 'pro',
     name: 'Pro',
-    title: 'Para agencias en crecimiento',
+    title: 'Para agencias chicas',
     usdMonthly: 49,
     leadsMonthly: null,
-    clientsLimit: 10,
-    projectsLimit: 30,
+    clientsLimit: 5,
+    projectsLimit: 25,
     whatsappLimit: 5,
     featured: true,
     capabilities: {
@@ -44,11 +83,17 @@ export const PLAN_DEFINITIONS = [
       canEditLeadPhones: true,
       canUseMetaCapi: true,
       canUsePurchases: true,
+      canCreateClients: true,
+      canCreateProjects: true,
+      canConnectWhatsapp: true,
+      canUseSdk: true,
+      isPaid: true,
+      upgradeRequired: false,
       exportLabel: 'Exportación incluida'
     },
     features: [
-      '10 clientes',
-      '30 proyectos / landings',
+      'Hasta 5 clientes',
+      'Hasta 25 proyectos / landings',
       'Hasta 5 WhatsApps conectados',
       'Teléfono editable manualmente por lead',
       'Meta Conversions API',
@@ -58,23 +103,30 @@ export const PLAN_DEFINITIONS = [
   {
     id: 'agency',
     name: 'Agency',
-    title: 'Escala, bases y multi-cliente',
+    title: 'Escala multi-cliente',
     usdMonthly: 99,
     leadsMonthly: null,
-    clientsLimit: 50,
-    projectsLimit: 150,
+    clientsLimit: 20,
+    projectsLimit: 100,
     whatsappLimit: 20,
     capabilities: {
       phoneVisibility: 'full',
       canViewFullPhones: true,
       canExportLeads: true,
+      canEditLeadPhones: true,
       canUseMetaCapi: true,
       canUsePurchases: true,
+      canCreateClients: true,
+      canCreateProjects: true,
+      canConnectWhatsapp: true,
+      canUseSdk: true,
+      isPaid: true,
+      upgradeRequired: false,
       exportLabel: 'Exportación CSV/XLSX incluida'
     },
     features: [
-      '50 clientes',
-      '150 proyectos / landings',
+      'Hasta 20 clientes',
+      'Hasta 100 proyectos / landings',
       'Hasta 20 WhatsApps conectados',
       'Teléfono editable manualmente por lead',
       'Exportación CSV/XLSX por fechas',
@@ -94,8 +146,15 @@ export const PLAN_DEFINITIONS = [
       phoneVisibility: 'full',
       canViewFullPhones: true,
       canExportLeads: true,
+      canEditLeadPhones: true,
       canUseMetaCapi: true,
       canUsePurchases: true,
+      canCreateClients: true,
+      canCreateProjects: true,
+      canConnectWhatsapp: true,
+      canUseSdk: true,
+      isPaid: true,
+      upgradeRequired: false,
       exportLabel: 'Exportación avanzada incluida'
     },
     features: [
@@ -107,7 +166,7 @@ export const PLAN_DEFINITIONS = [
       'Soporte dedicado'
     ]
   }
-];
+]
 
 const PLAN_ALIASES = {
   supreme: 'enterprise',
@@ -179,21 +238,27 @@ export function getPricingForRequest(req) {
 }
 
 export function getPlanById(id) {
-  const normalized = String(id || 'starter').toLowerCase();
+  const normalized = String(id || 'free').toLowerCase();
   const target = PLAN_ALIASES[normalized] || normalized;
-  return PLAN_DEFINITIONS.find((plan) => plan.id === target) || PLAN_DEFINITIONS[0];
+  return PLAN_DEFINITIONS.find((plan) => plan.id === target) || getPlanById('free');
 }
 
 export function getPlanCapabilities(id) {
   const plan = getPlanById(id);
   return {
     phoneVisibility: 'manual',
-    canViewFullPhones: true,
-    canExportLeads: true,
-    canEditLeadPhones: true,
+    canViewFullPhones: false,
+    canExportLeads: false,
+    canEditLeadPhones: false,
     canUseMetaCapi: false,
-    canUsePurchases: true,
-    exportLabel: 'Exportación incluida',
+    canUsePurchases: false,
+    canCreateClients: false,
+    canCreateProjects: false,
+    canConnectWhatsapp: false,
+    canUseSdk: false,
+    isPaid: false,
+    upgradeRequired: true,
+    exportLabel: 'Disponible desde Starter',
     ...(plan.capabilities || {})
   };
 }

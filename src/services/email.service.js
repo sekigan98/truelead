@@ -130,7 +130,7 @@ export async function sendVerificationEmail({ agency, user, token }) {
       body: `<p>Hola <strong>${user.name}</strong>,</p>
         <p>Ya recibimos el registro de <strong>${agency.name}</strong>. Para empezar a usar el panel, confirmá tu email con el botón de abajo.</p>
         ${button('Activar mi cuenta', verifyUrl)}
-        <p>Después de activar la cuenta vas a poder vincular WhatsApp por QR, crear proyectos y empezar a medir leads reales automáticamente.</p>
+        <p>Después de activar la cuenta vas a entrar en Free para conocer el panel. Para vincular WhatsApp por QR, crear proyectos y medir leads reales, activá Starter o superior.</p>
         <p style="color:#8da1ce;font-size:13px;word-break:break-all;">${verifyUrl}</p>`
     })
   });
@@ -143,7 +143,7 @@ export async function sendVerificationEmail({ agency, user, token }) {
     html: htmlLayout({
       title: 'Nuevo registro en TrueLead',
       preview: `${agency.name} se registró en TrueLead.`,
-      body: `<p>Se registró una nueva cuenta.</p><ul><li><strong>Agencia:</strong> ${agency.name}</li><li><strong>Usuario:</strong> ${user.name}</li><li><strong>Email:</strong> ${user.email}</li></ul><p>La cuenta queda esperando verificación de email y luego entra en trial automáticamente.</p>`
+      body: `<p>Se registró una nueva cuenta.</p><ul><li><strong>Agencia:</strong> ${agency.name}</li><li><strong>Usuario:</strong> ${user.name}</li><li><strong>Email:</strong> ${user.email}</li></ul><p>La cuenta queda esperando verificación de email y luego entra en Free automáticamente.</p>`
     })
   });
 }
@@ -152,13 +152,13 @@ export async function sendWelcomeEmail({ agency, user }) {
   const appUrl = `${baseUrl()}/login`;
   return sendTrueLeadEmail({
     to: user.email,
-    type: 'account_activated_trial',
+    type: 'account_activated_free',
     subject: 'Tu cuenta TrueLead ya está activa',
     text: `Hola ${user.name}, tu cuenta ${agency.name} ya está activa. Entrá al panel: ${appUrl}`,
     html: htmlLayout({
       title: 'Tu cuenta ya está activa',
-      preview: 'Ya podés vincular WhatsApp y medir leads reales.',
-      body: `<p>Hola <strong>${user.name}</strong>,</p><p>La cuenta <strong>${agency.name}</strong> ya está activa en modo trial.</p>${button('Entrar al panel', appUrl)}<p>El próximo paso es vincular WhatsApp por QR y crear tu primer proyecto.</p>`
+      preview: 'Tu panel Free ya está activo.',
+      body: `<p>Hola <strong>${user.name}</strong>,</p><p>La cuenta <strong>${agency.name}</strong> ya está activa en plan Free.</p>${button('Entrar al panel', appUrl)}<p>Desde el panel vas a poder ver cómo funciona TrueLead. Para crear clientes, vincular WhatsApp por QR y medir leads reales, activá Starter o superior.</p>`
     })
   });
 }
