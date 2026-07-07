@@ -3,6 +3,7 @@ import { db } from '../lib/db.js';
 import {
   cleanString,
   extractLeadCode,
+  normalizeLeadPhone,
   normalizePhone,
   nowIso,
   sha256
@@ -10,12 +11,21 @@ import {
 import { sendMetaLeadEvent } from './metaCapi.service.js';
 
 function getPhoneHash(phone) {
-  const normalized = normalizePhone(phone);
+  const normalized = normalizeLeadPhone(phone);
   return normalized ? sha256(normalized) : '';
 }
 
+function getLidHash(lid) {
+  const normalized = cleanString(lid, 160).toLowerCase();
+  return normalized ? sha256(`lid:${normalized}`) : '';
+}
+
+function getSenderHash({ phone = '', lid = '' } = {}) {
+  return getPhoneHash(phone) || getLidHash(lid);
+}
+
 function phoneLast4(phone) {
-  const normalized = normalizePhone(phone);
+  const normalized = normalizeLeadPhone(phone);
   return normalized ? normalized.slice(-4) : '';
 }
 
@@ -51,6 +61,9 @@ function isPaymentProofMedia({ messageType = '', mimeType = '', fileName = '' })
 export async function confirmPreleadByCode({
   code,
   phone = '',
+  lid = '',
+  fromJid = '',
+  senderName = '',
   source = 'manual',
   sendToMeta = true,
   messageText = '',
@@ -64,16 +77,21 @@ export async function confirmPreleadByCode({
   }
 
   const project = db.data.projects.find((p) => p.id === prelead.projectId);
-  const normalizedPhone = normalizePhone(phone);
-  const phoneHash = getPhoneHash(normalizedPhone);
+  const normalizedPhone = normalizeLeadPhone(phone);
+  const normalizedLid = cleanString(lid, 160);
+  const normalizedJid = cleanString(fromJid, 180);
+  const phoneHash = getSenderHash({ phone: normalizedPhone, lid: normalizedLid });
 
   prelead.status = prelead.status === 'sent_to_meta' ? prelead.status : 'confirmed';
   prelead.confirmedAt = prelead.confirmedAt || nowIso();
-  prelead.whatsappFromLast4 = phoneLast4(normalizedPhone);
+  prelead.whatsappFromLast4 = phoneLast4(normalizedPhone) || prelead.whatsappFromLast4 || '';
   prelead.whatsappFromHash = phoneHash || prelead.whatsappFromHash || '';
   prelead.whatsappFromPhone = normalizedPhone || prelead.whatsappFromPhone || '';
   prelead.phone = normalizedPhone || prelead.phone || '';
   prelead.whatsappFrom = normalizedPhone || prelead.whatsappFrom || '';
+  prelead.whatsappFromLid = normalizedLid || prelead.whatsappFromLid || '';
+  prelead.whatsappFromJid = normalizedJid || prelead.whatsappFromJid || '';
+  prelead.whatsappFromName = cleanString(senderName, 160) || prelead.whatsappFromName || '';
   prelead.confirmationSource = source;
   prelead.lastMessagePreview = cleanString(messageText, 180);
   prelead.incomingMessageCount = Number(prelead.incomingMessageCount || 0) + 1;
@@ -119,6 +137,9 @@ export async function registerIncomingWhatsAppMessage({
   whatsappSessionId = '',
   messageId = '',
   from = '',
+  fromLid = '',
+  fromJid = '',
+  senderName = '',
   text = '',
   messageType = 'text',
   mimeType = '',
@@ -126,8 +147,10 @@ export async function registerIncomingWhatsAppMessage({
   hasMedia = false,
   source = 'baileys'
 }) {
-  const normalizedPhone = normalizePhone(from);
-  const phoneHash = getPhoneHash(normalizedPhone);
+  const normalizedPhone = normalizeLeadPhone(from);
+  const normalizedLid = cleanString(fromLid, 160);
+  const normalizedJid = cleanString(fromJid, 180);
+  const phoneHash = getSenderHash({ phone: normalizedPhone, lid: normalizedLid });
   const code = extractLeadCode(text);
   let prelead = code ? db.data.preleads.find((l) => l.code === code && l.agencyId === agencyId) : null;
 
@@ -152,6 +175,9 @@ export async function registerIncomingWhatsAppMessage({
     fromHash: phoneHash,
     fromLast4: phoneLast4(normalizedPhone),
     fromPhone: normalizedPhone,
+    fromLid: normalizedLid,
+    fromJid: normalizedJid,
+    senderName: cleanString(senderName, 160),
     messageType,
     hasMedia,
     mimeType: cleanString(mimeType, 160),
@@ -167,6 +193,9 @@ export async function registerIncomingWhatsAppMessage({
     leadResult = await confirmPreleadByCode({
       code,
       phone: normalizedPhone,
+      lid: normalizedLid,
+      fromJid: normalizedJid,
+      senderName,
       source: `${source}_message`,
       sendToMeta: true,
       messageText: text
@@ -184,6 +213,9 @@ export async function registerIncomingWhatsAppMessage({
     prelead.whatsappFromPhone = prelead.whatsappFromPhone || normalizedPhone || '';
     prelead.phone = prelead.phone || normalizedPhone || '';
     prelead.whatsappFrom = prelead.whatsappFrom || normalizedPhone || '';
+    prelead.whatsappFromLid = prelead.whatsappFromLid || normalizedLid || '';
+    prelead.whatsappFromJid = prelead.whatsappFromJid || normalizedJid || '';
+    prelead.whatsappFromName = prelead.whatsappFromName || cleanString(senderName, 160) || '';
     prelead.updatedAt = nowIso();
   }
 
@@ -195,6 +227,9 @@ export async function registerIncomingWhatsAppMessage({
       clientId,
       whatsappSessionId,
       phone: normalizedPhone,
+      lid: normalizedLid,
+      fromJid: normalizedJid,
+      senderName,
       text,
       messageType,
       mimeType,
@@ -234,6 +269,9 @@ export async function registerPaymentProof({
   clientId = '',
   whatsappSessionId = '',
   phone = '',
+  lid = '',
+  fromJid = '',
+  senderName = '',
   text = '',
   messageType = 'document',
   mimeType = '',
@@ -243,8 +281,10 @@ export async function registerPaymentProof({
   prelead = null,
   messageRecordId = null
 }) {
-  const normalizedPhone = normalizePhone(phone);
-  const phoneHash = getPhoneHash(normalizedPhone);
+  const normalizedPhone = normalizeLeadPhone(phone);
+  const normalizedLid = cleanString(lid, 160);
+  const normalizedJid = cleanString(fromJid, 180);
+  const phoneHash = getSenderHash({ phone: normalizedPhone, lid: normalizedLid });
   const code = extractLeadCode(text);
 
   if (!prelead && code) {
@@ -267,6 +307,9 @@ export async function registerPaymentProof({
     whatsappFromHash: phoneHash,
     whatsappFromLast4: phoneLast4(normalizedPhone),
     whatsappFromPhone: normalizedPhone,
+    whatsappFromLid: normalizedLid,
+    whatsappFromJid: normalizedJid,
+    whatsappFromName: cleanString(senderName, 160),
     messageRecordId,
     externalMessageId: cleanString(messageId, 200),
     proofType: messageType,
@@ -290,6 +333,9 @@ export async function registerPaymentProof({
     prelead.whatsappFromPhone = prelead.whatsappFromPhone || normalizedPhone || '';
     prelead.phone = prelead.phone || normalizedPhone || '';
     prelead.whatsappFrom = prelead.whatsappFrom || normalizedPhone || '';
+    prelead.whatsappFromLid = prelead.whatsappFromLid || normalizedLid || '';
+    prelead.whatsappFromJid = prelead.whatsappFromJid || normalizedJid || '';
+    prelead.whatsappFromName = prelead.whatsappFromName || cleanString(senderName, 160) || '';
     prelead.updatedAt = nowIso();
   }
 

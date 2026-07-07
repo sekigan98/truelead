@@ -4,6 +4,7 @@ import { nanoid } from 'nanoid';
 import { db } from '../lib/db.js';
 import {
   cleanString,
+  normalizeLeadPhone,
   normalizePhone,
   normalizeWhatsAppNumber,
   omitSensitiveProject,
@@ -58,30 +59,30 @@ function findWhatsappSession(agencyId, sessionId) {
 }
 
 function latestLeadPhone(lead) {
-  const direct = normalizePhone(lead.whatsappFromPhone || lead.phone || '');
+  const direct = normalizeLeadPhone(lead.whatsappFromPhone || lead.phone || '');
   if (direct) return direct;
 
   const messages = db.data.whatsappMessages
     .filter((m) => m.preleadId === lead.id || (lead.code && m.code === lead.code))
     .sort((a, b) => String(b.receivedAt || b.createdAt).localeCompare(String(a.receivedAt || a.createdAt)));
-  const fromMessage = normalizePhone(messages.find((m) => m.fromPhone)?.fromPhone || '');
+  const fromMessage = normalizeLeadPhone(messages.find((m) => m.fromPhone)?.fromPhone || '');
   if (fromMessage) return fromMessage;
 
   const purchases = db.data.purchases
     .filter((purchase) => purchase.preleadId === lead.id || (lead.code && purchase.code === lead.code))
     .sort((a, b) => String(b.receivedAt || b.createdAt).localeCompare(String(a.receivedAt || a.createdAt)));
-  const fromPurchase = normalizePhone(purchases.find((purchase) => purchase.whatsappFromPhone)?.whatsappFromPhone || '');
+  const fromPurchase = normalizeLeadPhone(purchases.find((purchase) => purchase.whatsappFromPhone)?.whatsappFromPhone || '');
   return fromPurchase || '';
 }
 
 function maskPhone(phone, last4 = '') {
-  const normalized = normalizePhone(phone);
+  const normalized = normalizeLeadPhone(phone);
   const suffix = normalized ? normalized.slice(-4) : String(last4 || '').slice(-4);
   return suffix ? `••••${suffix}` : '';
 }
 
 function formatPhoneForPanel(phone, last4 = '', capabilities = { canViewFullPhones: true }) {
-  const normalized = normalizePhone(phone);
+  const normalized = normalizeLeadPhone(phone);
   if (capabilities?.canViewFullPhones && normalized) return normalized;
   return maskPhone(normalized, last4);
 }
@@ -533,7 +534,7 @@ agencyRouter.get('/purchases', ensureAgencyActive, (req, res) => {
       project: findProject(projects, purchase.projectId),
       client: findClient(clients, purchase.clientId),
       phoneDisplay: formatPhoneForPanel(purchase.whatsappFromPhone, purchase.whatsappFromLast4, agencyCapabilities(req)),
-      whatsappFromPhone: agencyCapabilities(req).canViewFullPhones ? normalizePhone(purchase.whatsappFromPhone || '') : ''
+      whatsappFromPhone: agencyCapabilities(req).canViewFullPhones ? normalizeLeadPhone(purchase.whatsappFromPhone || '') : ''
     }));
 
   res.json({ range, purchases });

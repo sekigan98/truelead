@@ -12,6 +12,38 @@ export function normalizePhone(value) {
   return String(value ?? '').replace(/\D/g, '');
 }
 
+export function isWhatsAppLidJid(value) {
+  return /@lid(?:$|[:?&\s])/i.test(String(value || '').trim());
+}
+
+export function jidToLid(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw || !isWhatsAppLidJid(raw)) return '';
+  return raw.split('@')[0].split(':')[0].replace(/[^0-9A-Za-z._-]/g, '');
+}
+
+export function isLikelyWhatsAppLidNumber(value) {
+  const digits = normalizePhone(value);
+  if (!digits) return false;
+
+  // Los LID de WhatsApp son identificadores opacos, no teléfonos. En Baileys
+  // pueden llegar como 162882893422688@lid y si se normalizan como teléfono
+  // terminan contaminando leads/exportaciones. Para Argentina aceptamos móviles
+  // reales 549 + 10 dígitos y rechazamos IDs opacos largos.
+  if (/^549\d{10}$/.test(digits)) return false;
+  if (/^54\d{8,12}$/.test(digits) && digits.length <= 13) return false;
+  return digits.length >= 15;
+}
+
+export function normalizeLeadPhone(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '';
+  if (isWhatsAppLidJid(raw)) return '';
+  const digits = normalizeWhatsAppNumber(raw);
+  if (isLikelyWhatsAppLidNumber(digits)) return '';
+  return digits;
+}
+
 export function normalizeWhatsAppNumber(value) {
   const raw = String(value ?? '').trim();
   if (!raw) return '';
@@ -162,7 +194,7 @@ export function originMatchesAuthorizedDomains(originValue, allowedValue) {
 
 
 export function jidToPhone(jid) {
-  return normalizeWhatsAppNumber(jid);
+  return normalizeLeadPhone(jid);
 }
 
 export function shortHashLabel(hashOrPhone) {

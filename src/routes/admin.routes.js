@@ -203,19 +203,23 @@ adminRouter.delete('/agencies/:id/history', async (req, res) => {
     preleads: db.data.preleads.filter((item) => item.agencyId === agency.id).length,
     whatsappMessages: db.data.whatsappMessages.filter((item) => item.agencyId === agency.id).length,
     purchases: db.data.purchases.filter((item) => item.agencyId === agency.id).length,
-    events: db.data.events.filter((item) => item.agencyId === agency.id).length
+    events: db.data.events.filter((item) => item.agencyId === agency.id).length,
+    whatsappContacts: (db.data.whatsappContacts || []).filter((item) => item.agencyId === agency.id).length
   };
 
   db.data.preleads = db.data.preleads.filter((item) => item.agencyId !== agency.id);
   db.data.whatsappMessages = db.data.whatsappMessages.filter((item) => item.agencyId !== agency.id);
   db.data.purchases = db.data.purchases.filter((item) => item.agencyId !== agency.id);
   db.data.events = db.data.events.filter((item) => item.agencyId !== agency.id);
+  if (Array.isArray(db.data.whatsappContacts)) {
+    db.data.whatsappContacts = db.data.whatsappContacts.filter((item) => item.agencyId !== agency.id);
+  }
 
   db.data.events.push({
     id: `ev_${Date.now()}_${Math.random().toString(36).slice(2)}`,
     agencyId: agency.id,
     type: 'history_deleted',
-    message: `Historial eliminado para ${agency.name}. Leads: ${counts.preleads}, mensajes: ${counts.whatsappMessages}, comprobantes: ${counts.purchases}.`,
+    message: `Historial eliminado para ${agency.name}. Leads: ${counts.preleads}, mensajes: ${counts.whatsappMessages}, comprobantes: ${counts.purchases}, contactos: ${counts.whatsappContacts || 0}.`,
     createdAt: nowIso()
   });
 

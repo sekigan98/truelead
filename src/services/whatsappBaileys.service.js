@@ -9,7 +9,7 @@ import makeWASocket, {
   useMultiFileAuthState
 } from '@whiskeysockets/baileys';
 import { db } from '../lib/db.js';
-import { cleanString, jidToPhone, normalizeWhatsAppNumber, nowIso } from '../lib/utils.js';
+import { cleanString, jidToLid, jidToPhone, normalizeLeadPhone, normalizeWhatsAppNumber, isLikelyWhatsAppLidNumber, nowIso } from '../lib/utils.js';
 import { registerIncomingWhatsAppMessage } from './leadEvents.service.js';
 
 function getDataRoot() {
@@ -86,6 +86,121 @@ function getContentInfo(message = {}) {
   return { text: '', type: 'unknown', hasMedia: false };
 }
 
+function collectJids(value, out = [], seen = new Set()) {
+  if (!value || seen.size > 250) return out;
+
+  if (typeof value === 'string') {
+    if (/@(?:s\.whatsapp\.net|lid|c\.us)$/i.test(value) || /@(?:s\.whatsapp\.net|lid|c\.us)[:?&\s]/i.test(value)) {
+      out.push(value.trim());
+    }
+    return out;
+  }
+
+  if (typeof value !== 'object') return out;
+  if (seen.has(value)) return out;
+  seen.add(value);
+
+  if (Array.isArray(value)) {
+    for (const item of value) collectJids(item, out, seen);
+    return out;
+  }
+
+  for (const item of Object.values(value)) collectJids(item, out, seen);
+  return out;
+}
+
+function unique(items) {
+  return [...new Set(items.filter(Boolean))];
+}
+
+function isValidLeadPhone(phone) {
+  const normalized = normalizeLeadPhone(phone);
+  return Boolean(normalized) && !isLikelyWhatsAppLidNumber(normalized);
+}
+
+function ensureWhatsappContactCollection() {
+  if (!Array.isArray(db.data.whatsappContacts)) db.data.whatsappContacts = [];
+}
+
+function getContactMapKey({ agencyId, sessionId, lid = '' }) {
+  return `${agencyId || ''}:${sessionId || ''}:${lid || ''}`;
+}
+
+function upsertWhatsappContact({ agencyId, sessionId, lid = '', phone = '', name = '' }) {
+  const normalizedLid = cleanString(lid, 120);
+  const normalizedPhone = normalizeLeadPhone(phone);
+  if (!normalizedLid || !normalizedPhone) return null;
+
+  ensureWhatsappContactCollection();
+  const key = getContactMapKey({ agencyId, sessionId, lid: normalizedLid });
+  let contact = db.data.whatsappContacts.find((item) => item.key === key);
+  if (!contact) {
+    contact = {
+      id: `wc_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+      key,
+      agencyId,
+      sessionId,
+      lid: normalizedLid,
+      phone: normalizedPhone,
+      name: cleanString(name, 160),
+      createdAt: nowIso(),
+      updatedAt: nowIso()
+    };
+    db.data.whatsappContacts.push(contact);
+  } else {
+    contact.phone = normalizedPhone || contact.phone;
+    contact.name = cleanString(name, 160) || contact.name || '';
+    contact.updatedAt = nowIso();
+  }
+  return contact;
+}
+
+function resolvePhoneFromLid({ agencyId, sessionId, lid = '' }) {
+  if (!lid || !Array.isArray(db.data.whatsappContacts)) return '';
+  const exact = db.data.whatsappContacts.find((item) =>
+    item.lid === lid &&
+    item.agencyId === agencyId &&
+    (!sessionId || !item.sessionId || item.sessionId === sessionId) &&
+    isValidLeadPhone(item.phone)
+  );
+  if (exact) return normalizeLeadPhone(exact.phone);
+
+  const fallback = db.data.whatsappContacts.find((item) => item.lid === lid && isValidLeadPhone(item.phone));
+  return normalizeLeadPhone(fallback?.phone || '');
+}
+
+function extractSenderIdentity(message = {}, session = {}, sock = null) {
+  const ownPhone = normalizeLeadPhone(session.number || jidToPhone(sock?.user?.id || ''));
+  const jids = unique([
+    message.key?.remoteJid,
+    message.key?.participant,
+    message.participant,
+    ...collectJids(message.key || {}),
+    ...collectJids(message.message || {})
+  ]);
+
+  const lid = jids.map(jidToLid).find(Boolean) || '';
+  const phone = jids
+    .map(jidToPhone)
+    .find((candidate) => candidate && candidate !== ownPhone && isValidLeadPhone(candidate)) ||
+    resolvePhoneFromLid({ agencyId: session.agencyId, sessionId: session.id, lid });
+
+  return {
+    phone: normalizeLeadPhone(phone),
+    lid,
+    jid: cleanString(message.key?.remoteJid || '', 180),
+    name: cleanString(message.pushName || message.verifiedBizName || '', 160)
+  };
+}
+
+function extractContactIdentity(contact = {}) {
+  const jids = unique([contact.id, contact.lid, contact.jid, contact.pn, contact.phoneJid, contact.phoneNumberJid, ...collectJids(contact)]);
+  const lid = jids.map(jidToLid).find(Boolean) || jidToLid(contact.lid || contact.id || '');
+  const phone = jids.map(jidToPhone).find((candidate) => candidate && isValidLeadPhone(candidate)) || '';
+  const name = contact.notify || contact.name || contact.shortName || contact.verifiedName || contact.pushName || '';
+  return { lid, phone, name: cleanString(name, 160) };
+}
+
 function sessionFolderName(sessionId) {
   return String(sessionId || '').replace(/[^a-zA-Z0-9_-]/g, '_');
 }
@@ -100,6 +215,7 @@ export class WhatsAppBaileysManager {
 
   async init() {
     await fs.mkdir(this.sessionRoot, { recursive: true });
+    ensureWhatsappContactCollection();
 
     // Migration suave: sesiones viejas sin label/clientId siguen funcionando.
     // También repara números propios guardados desde Baileys con suffix de dispositivo
@@ -123,6 +239,35 @@ export class WhatsAppBaileysManager {
       if (fixedProjectNumber && fixedProjectNumber !== project.whatsappNumber) {
         project.whatsappNumber = fixedProjectNumber;
         project.updatedAt = nowIso();
+        migrated = true;
+      }
+    }
+
+    for (const lead of db.data.preleads || []) {
+      for (const field of ['phone', 'whatsappFromPhone', 'whatsappFrom']) {
+        if (isLikelyWhatsAppLidNumber(lead[field])) {
+          lead.whatsappFromLid = lead.whatsappFromLid || `${normalizeWhatsAppNumber(lead[field])}@lid`;
+          lead[field] = '';
+          lead.updatedAt = nowIso();
+          migrated = true;
+        }
+      }
+    }
+
+    for (const message of db.data.whatsappMessages || []) {
+      if (isLikelyWhatsAppLidNumber(message.fromPhone)) {
+        message.fromLid = message.fromLid || `${normalizeWhatsAppNumber(message.fromPhone)}@lid`;
+        message.fromPhone = '';
+        message.updatedAt = nowIso();
+        migrated = true;
+      }
+    }
+
+    for (const purchase of db.data.purchases || []) {
+      if (isLikelyWhatsAppLidNumber(purchase.whatsappFromPhone)) {
+        purchase.whatsappFromLid = purchase.whatsappFromLid || `${normalizeWhatsAppNumber(purchase.whatsappFromPhone)}@lid`;
+        purchase.whatsappFromPhone = '';
+        purchase.updatedAt = nowIso();
         migrated = true;
       }
     }
@@ -251,6 +396,25 @@ export class WhatsAppBaileysManager {
 
     sock.ev.on('creds.update', saveCreds);
 
+    const rememberContacts = async (contacts = []) => {
+      const list = Array.isArray(contacts) ? contacts : [contacts];
+      let changed = false;
+      for (const contact of list) {
+        const identity = extractContactIdentity(contact);
+        if (identity.lid && identity.phone) {
+          upsertWhatsappContact({ agencyId, sessionId: sid, lid: identity.lid, phone: identity.phone, name: identity.name });
+          changed = true;
+        }
+      }
+      if (changed) await db.save();
+    };
+
+    sock.ev.on('contacts.update', rememberContacts);
+    sock.ev.on('contacts.upsert', rememberContacts);
+    sock.ev.on('messaging-history.set', async ({ contacts = [] } = {}) => {
+      await rememberContacts(contacts);
+    });
+
     sock.ev.on('connection.update', async (update) => {
       const { connection, lastDisconnect, qr } = update;
 
@@ -358,7 +522,7 @@ export class WhatsAppBaileysManager {
       if (message.key?.fromMe) return null;
       if (message.key?.remoteJid?.endsWith('@g.us')) return null;
 
-      const from = jidToPhone(message.key?.remoteJid || '');
+      const sender = extractSenderIdentity(message, session, this.instances.get(session.id)?.sock || null);
       const content = getContentInfo(message);
 
       if (!content.text && !content.hasMedia) return null;
@@ -368,7 +532,10 @@ export class WhatsAppBaileysManager {
         clientId: session.clientId || '',
         whatsappSessionId: session.id,
         messageId: message.key?.id || '',
-        from,
+        from: sender.phone,
+        fromLid: sender.lid,
+        fromJid: sender.jid,
+        senderName: sender.name,
         text: content.text || '',
         messageType: content.type || 'unknown',
         mimeType: content.mimeType || '',
